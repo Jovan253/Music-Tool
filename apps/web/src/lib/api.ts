@@ -6,6 +6,15 @@ export interface UploadResponse {
   filename: string
 }
 
+export interface JobResponse {
+  job_id: string
+  status: 'pending' | 'processing' | 'done' | 'failed'
+  filename: string
+  created_at: string
+  stems: Record<string, string> | null
+  error: string | null
+}
+
 export function uploadFile(
   file: File,
   onProgress: (pct: number) => void,
@@ -52,4 +61,12 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     }),
+}
+
+export function getJobStatus(jobId: string): Promise<JobResponse> {
+  return request<JobResponse>(`/jobs/${jobId}`)
+}
+
+export function getStemUrl(jobId: string, stemName: string): string {
+  return `${BASE_URL}/jobs/${jobId}/stems/${stemName}`
 }

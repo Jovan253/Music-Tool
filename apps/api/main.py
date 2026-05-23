@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routes.upload import router as upload_router
 from routes.jobs import router as jobs_router
+from routes.stems import router as stems_router
 
 load_dotenv()
 
@@ -19,6 +20,7 @@ app.add_middleware(
 
 app.include_router(upload_router)
 app.include_router(jobs_router)
+app.include_router(stems_router)
 
 
 @app.get("/health")
