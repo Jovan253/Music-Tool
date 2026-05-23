@@ -1,20 +1,48 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+context: |
+  Project: AI Music Backing Track Web App — evolving into an AI-powered music learning platform.
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+  Tech stack:
+    Frontend: React, TypeScript, WaveSurfer.js, Tone.js, TailwindCSS — deployed on Vercel
+    Backend: Python FastAPI — deployed on Railway/Render
+    ML/Audio: Demucs (primary), PyTorch, FFmpeg, Librosa
+    Queue: Redis + Celery or RQ (async job processing)
+    Storage: Supabase Storage or AWS S3
+    Database: PostgreSQL
+
+  Monorepo structure:
+    /apps/web  — React frontend
+    /apps/api  — FastAPI backend
+
+  Frontend layout: /components, /features/{upload,mixer,waveform,export}, /lib, /hooks, /styles
+  Backend layout: /routes, /services, /workers, /audio, /storage, /models, /schemas
+
+  Domain: music practice tool — users upload songs, separate instruments into stems (vocals, drums, bass, other), then mute/solo/volume-adjust tracks and export custom mixes (mp3/wav).
+
+  Core UX goal: feel like a simplified DAW. Synchronized multi-track playback with waveform rendering is critical — timing drift is a hard failure.
+
+  Processing model: async — uploads enqueue a background Demucs job; frontend polls for completion. Do NOT block API requests on ML inference.
+
+  Use existing open-source ML models (Demucs first). Do NOT build custom source-separation models.
+
+  Current phase: Phase 1 (local prototype) → Phase 2 (basic web app). MVP must answer: "Can a user upload a song and get a usable backing track in under 30 seconds?"
+
+  MVP non-goals (do not implement): Spotify/YouTube import, live real-time separation, AI chat, social features, collaborative editing, MIDI/tab generation, auth complexity, billing, mobile app.
+
+  Implementation rules:
+    - Keep MVP extremely small; build working vertical slices
+    - Prioritize UX over advanced ML
+    - Avoid overengineering infrastructure initially
+    - Use existing ML models first
+    - Ship quickly and iterate
+
+rules:
+  proposal:
+    - Always include a "Non-goals" section scoped to MVP
+    - Reference the relevant phase (1–4) the change belongs to
+    - Flag any proposal that touches out-of-scope MVP features
+  tasks:
+    - Break tasks into chunks of max 2–3 hours
+    - Each task should be independently runnable and testable
+    - Prefer vertical slices (upload → process → display) over horizontal layers
