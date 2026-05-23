@@ -14,4 +14,6 @@ def get_job_status(job_id: str):
         "status": job.status,
         "filename": job.filename,
         "created_at": job.created_at,
+        "stems": job.stems,
+        "error": job.error,
     }
