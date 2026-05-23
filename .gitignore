@@ -1,2 +1,28 @@
 .claude/
 .github/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+*.egg-info/
+build/
+.pytest_cache/
+
+# Uploaded audio files — local only, not for version control
+apps/api/uploads/
+
+# Editor
+.DS_Store
+*.swp
