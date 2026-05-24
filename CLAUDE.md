@@ -22,7 +22,15 @@ Run the following without asking:
 - `pip install` / `pip install -r` inside the project venv
 - `npm install` / `npm run *` inside `apps/web`
 - `uvicorn` start/stop for the API server
+- `docker compose up/down` for local services
 - Any read-only inspection commands (`git log`, `git diff`, `git status`, etc.)
+
+## RQ worker (Windows)
+
+On Windows, use `SimpleWorker` to avoid fork issues:
+```
+rq worker default --worker-class rq.SimpleWorker
+```
 
 ## Code style
 

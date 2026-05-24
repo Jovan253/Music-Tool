@@ -1,4 +1,5 @@
 import os
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -9,8 +10,21 @@ from routes.upload import router as upload_router
 from routes.jobs import router as jobs_router
 from routes.stems import router as stems_router
 from routes.export import router as export_router
+from services.jobs import get_stale_processing_jobs, update_job
+from workers.separation import run_separation
+from job_queue import get_queue
 
-app = FastAPI(title="Music Tool API")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    stale = get_stale_processing_jobs()
+    for job_id in stale:
+        update_job(job_id, status="pending")
+        get_queue().enqueue(run_separation, job_id)
+    yield
+
+
+app = FastAPI(title="Music Tool API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

@@ -1,4 +1,8 @@
 from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).parent.parent / ".env")
+
 from audio.demucs import separate
 from services.jobs import get_job, update_job
 
