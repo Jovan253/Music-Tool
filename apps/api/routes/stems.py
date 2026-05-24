@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import RedirectResponse
 from services.jobs import get_job
+from storage.supabase_storage import create_signed_url
 
 router = APIRouter()
 
@@ -17,4 +18,5 @@ def get_stem(job_id: str, stem_name: str):
     path = job.stems.get(stem_name)
     if not path:
         raise HTTPException(status_code=404, detail="Stem not found")
-    return FileResponse(path, media_type="audio/wav")
+    signed_url = create_signed_url("stems", path, 3600)
+    return RedirectResponse(url=signed_url, status_code=307)

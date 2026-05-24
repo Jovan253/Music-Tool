@@ -1,8 +1,17 @@
+import logging
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger(__name__)
+
+_env_path = Path(__file__).parent / ".env"
+load_dotenv(_env_path)
+log.info("Loaded .env from %s", _env_path)
+log.info("SUPABASE_URL set: %s", bool(os.environ.get("SUPABASE_URL")))
+log.info("SUPABASE_KEY set: %s", bool(os.environ.get("SUPABASE_SERVICE_ROLE_KEY")))
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

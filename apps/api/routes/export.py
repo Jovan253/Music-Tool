@@ -5,6 +5,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from services.jobs import get_job
 from audio.mixer import mix_stems
+from storage.supabase_storage import download_file
 
 router = APIRouter()
 
@@ -22,7 +23,12 @@ def export_mix(job_id: str, body: ExportRequest):
     if job is None or job.status != "done" or job.stems is None:
         raise HTTPException(status_code=404, detail="Job not found or not complete")
 
-    audio_bytes = mix_stems(job.stems, body.stems, body.format)
+    stem_bytes: dict[str, bytes] = {
+        name: download_file("stems", path)
+        for name, path in job.stems.items()
+    }
+
+    audio_bytes = mix_stems(stem_bytes, body.stems, body.format)
 
     return StreamingResponse(
         io.BytesIO(audio_bytes),
