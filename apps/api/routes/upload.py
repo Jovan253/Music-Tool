@@ -3,7 +3,7 @@ import threading
 from pathlib import Path
 from fastapi import APIRouter, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
-from services.jobs import create_job
+from services.jobs import create_job, update_job
 from workers.separation import run_separation
 
 router = APIRouter()
@@ -33,9 +33,7 @@ async def upload_audio(file: UploadFile):
     job = create_job(filename=file.filename or f"upload.{ext}", file_path="")
     dest = UPLOADS_DIR / f"{job.job_id}.{ext}"
     dest.write_bytes(contents)
-
-    # Update stored path now that we have the job_id
-    job.file_path = str(dest)
+    update_job(job.job_id, file_path=str(dest))
 
     threading.Thread(target=run_separation, args=(job.job_id,), daemon=True).start()
 
