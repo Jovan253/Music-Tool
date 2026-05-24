@@ -26,9 +26,11 @@ Detailed per-change tasks live in `openspec/changes/<name>/tasks.md`.
 ## Phase 4 — Deploy & Polish
 
 - [ ] Deploy frontend to Vercel
-- [ ] Deploy backend to Railway or Render
+- [ ] Deploy backend to Railway or Render (requires PostgreSQL + Redis add-ons)
+- [ ] Export speed — download all 4 stems from Supabase in parallel before mixing (currently sequential; easy win)
+- [ ] Separation progress bar — stream Demucs progress to the frontend via SSE; worker publishes progress to Redis, API streams to client
+- [ ] UX polish — upload progress indicator, waveform loading states, error surfaces, mobile layout
 - [ ] Performance — GPU inference path, htdemucs_ft model option, processing time targets
-- [ ] UX polish — upload progress, waveform loading states, error surfaces, mobile layout
 
 ## Phase 5 — Audio Intelligence
 

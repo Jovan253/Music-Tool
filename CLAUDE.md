@@ -32,6 +32,17 @@ On Windows, use `SimpleWorker` to avoid fork issues:
 rq worker default --worker-class rq.SimpleWorker
 ```
 
+## Killing lingering processes (Windows)
+
+On Windows, closing a terminal does not kill uvicorn. Before restarting the dev server, always clear port 8000:
+```powershell
+Get-NetTCPConnection -LocalPort 8000 -State Listen | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
+```
+If a process respawns or can't be found by ID, kill all Python:
+```powershell
+Get-Process python | Stop-Process -Force
+```
+
 ## Code style
 
 - No comments unless the reason is non-obvious
