@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type WaveSurfer from 'wavesurfer.js'
 import { getStemUrl } from '../../lib/api'
+import { ExportButton } from '../export/ExportButton'
 import { TrackRow } from './TrackRow'
 
 const STEMS = ['vocals', 'drums', 'bass', 'other'] as const
@@ -18,6 +19,7 @@ export function StemMixer({ jobId, onReset }: Props) {
 
   const [allReady, setAllReady] = useState(false)
   const [playing, setPlaying] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [volumes, setVolumes] = useState<Record<StemName, number>>(
     { vocals: 1, drums: 1, bass: 1, other: 1 },
   )
@@ -122,14 +124,20 @@ export function StemMixer({ jobId, onReset }: Props) {
           ))}
         </div>
 
-        <div className="mt-8 flex justify-center">
+        <div className="mt-8 flex justify-center gap-4">
           <button
             onClick={togglePlay}
-            disabled={!allReady}
+            disabled={!allReady || exporting}
             className="w-32 rounded-full bg-purple-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-purple-500 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {playing ? 'Pause' : 'Play'}
           </button>
+          {allReady && (
+            <>
+              <ExportButton jobId={jobId} volumes={volumes} muted={muted} format="mp3" disabled={exporting} onLoadingChange={setExporting} />
+              <ExportButton jobId={jobId} volumes={volumes} muted={muted} format="wav" disabled={exporting} onLoadingChange={setExporting} />
+            </>
+          )}
         </div>
       </div>
     </div>

@@ -70,3 +70,17 @@ export function getJobStatus(jobId: string): Promise<JobResponse> {
 export function getStemUrl(jobId: string, stemName: string): string {
   return `${BASE_URL}/jobs/${jobId}/stems/${stemName}`
 }
+
+export async function exportMix(
+  jobId: string,
+  stems: Record<string, number>,
+  format: 'mp3' | 'wav',
+): Promise<Blob> {
+  const res = await fetch(`${BASE_URL}/jobs/${jobId}/export`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ stems, format }),
+  })
+  if (!res.ok) throw new Error(`Export failed: ${res.status}`)
+  return res.blob()
+}

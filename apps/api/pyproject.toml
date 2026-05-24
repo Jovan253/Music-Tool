@@ -12,6 +12,7 @@ dependencies = [
     "python-dotenv>=1.0",
     "python-multipart>=0.0.9",
     "demucs>=4.0",
+    "pydub>=0.25",
     "torch==2.5.1",
     "torchaudio==2.5.1",
 ]
