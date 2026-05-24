@@ -20,7 +20,7 @@ Detailed per-change tasks live in `openspec/changes/<name>/tasks.md`.
 
 - [ ] Async job queue — replace daemon thread with Redis + Celery (or RQ); add job progress events
 - [ ] Cloud storage — move uploads and stems to Supabase Storage or S3; presigned URLs for playback
-- [ ] Database — PostgreSQL job/user records via SQLAlchemy; migrate away from in-memory store
+- [x] Database — PostgreSQL job/user records via SQLAlchemy; migrate away from in-memory store
 - [ ] Auth — user accounts (Supabase Auth or Auth.js); jobs scoped to user
 
 ## Phase 4 — Deploy & Polish
