@@ -1,11 +1,18 @@
+import os
 from pathlib import Path
 
 
 STEM_NAMES = ("vocals", "drums", "bass", "other")
 
 
-def separate(input_path: str, output_dir: str) -> dict[str, str]:
-    """Run htdemucs on input_path, write stems to output_dir, return stem name → file path."""
+def get_demucs_device() -> str:
+    if "DEMUCS_DEVICE" in os.environ:
+        return os.environ["DEMUCS_DEVICE"]
+    import torch
+    return "cuda" if torch.cuda.is_available() else "cpu"
+
+
+def separate(input_path: str, output_dir: str, device: str | None = None) -> dict[str, str]:
     from demucs.separate import main as demucs_main
 
     out = Path(output_dir)
@@ -14,15 +21,13 @@ def separate(input_path: str, output_dir: str) -> dict[str, str]:
     demucs_main(
         [
             "--name", "htdemucs",
+            "--device", device or get_demucs_device(),
             "--out", str(out),
             "--filename", "{stem}.{ext}",
             str(input_path),
         ]
     )
 
-    # Demucs writes to <out>/htdemucs/<track_name>/{stem}.wav
-    # With --filename {stem}.{ext} it writes directly to <out>/htdemucs/<track_stem>
-    # Find the stems by searching the output tree
     stems: dict[str, str] = {}
     for stem_name in STEM_NAMES:
         matches = list(out.rglob(f"{stem_name}.wav"))

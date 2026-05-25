@@ -18,6 +18,7 @@ class JobRecord:
     created_at: str
     stems: dict[str, str] | None = field(default=None)
     error: str | None = field(default=None)
+    processing_ms: int | None = field(default=None)
 
 
 def _to_record(row: JobModel) -> JobRecord:
@@ -29,6 +30,7 @@ def _to_record(row: JobModel) -> JobRecord:
         created_at=row.created_at.isoformat() if isinstance(row.created_at, datetime) else str(row.created_at),
         stems=row.stems,
         error=row.error,
+        processing_ms=row.processing_ms,
     )
 
 
@@ -71,6 +73,7 @@ def update_job(
     file_path: str | None = None,
     stems: dict[str, str] | None = None,
     error: str | None = None,
+    processing_ms: int | None = None,
 ) -> JobRecord:
     with SessionLocal() as db:
         row = db.get(JobModel, job_id)
@@ -84,6 +87,8 @@ def update_job(
             row.stems = stems
         if error is not None:
             row.error = error
+        if processing_ms is not None:
+            row.processing_ms = processing_ms
         db.commit()
         db.refresh(row)
         return _to_record(row)

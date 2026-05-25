@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type WaveSurfer from 'wavesurfer.js'
-import { fetchStemUrl } from '../../lib/api'
+import { fetchStemUrl, getJobStatus } from '../../lib/api'
 import { ExportButton } from '../export/ExportButton'
 import { TrackRow } from './TrackRow'
 
@@ -20,6 +20,7 @@ export function StemMixer({ jobId, onReset }: Props) {
   const [allReady, setAllReady] = useState(false)
   const [playing, setPlaying] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [processingMs, setProcessingMs] = useState<number | null>(null)
   const [volumes, setVolumes] = useState<Record<StemName, number>>(
     { vocals: 1, drums: 1, bass: 1, other: 1 },
   )
@@ -30,11 +31,15 @@ export function StemMixer({ jobId, onReset }: Props) {
 
   useEffect(() => {
     let cancelled = false
-    Promise.all(STEMS.map(stem => fetchStemUrl(jobId, stem).then(url => [stem, url] as const)))
-      .then(entries => {
-        if (!cancelled) setStemUrls(Object.fromEntries(entries) as Record<StemName, string>)
-      })
-      .catch(console.error)
+    Promise.all([
+      Promise.all(STEMS.map(stem => fetchStemUrl(jobId, stem).then(url => [stem, url] as const))),
+      getJobStatus(jobId),
+    ]).then(([entries, job]) => {
+      if (!cancelled) {
+        setStemUrls(Object.fromEntries(entries) as Record<StemName, string>)
+        setProcessingMs(job.processing_ms)
+      }
+    }).catch(console.error)
     return () => { cancelled = true }
   }, [jobId])
 
@@ -92,7 +97,14 @@ export function StemMixer({ jobId, onReset }: Props) {
     <div className="flex min-h-screen flex-col bg-gray-950 p-6">
       <div className="mx-auto w-full max-w-3xl">
         <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-white">Stem Mixer</h1>
+          <div>
+            <h1 className="text-2xl font-semibold text-white">Stem Mixer</h1>
+            {processingMs !== null && (
+              <p className="mt-0.5 text-xs text-gray-500">
+                Separated in {Math.round(processingMs / 1000)} s
+              </p>
+            )}
+          </div>
           <button
             onClick={onReset}
             className="rounded-lg bg-gray-800 px-3 py-1.5 text-sm text-gray-300 hover:bg-gray-700"

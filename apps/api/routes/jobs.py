@@ -17,4 +17,5 @@ def get_job_status(job_id: str, user_id: str = Depends(get_current_user)):
         "created_at": job.created_at,
         "stems": job.stems,
         "error": job.error,
+        "processing_ms": job.processing_ms,
     }

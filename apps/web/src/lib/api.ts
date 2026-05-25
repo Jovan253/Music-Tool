@@ -19,6 +19,7 @@ export interface JobResponse {
   created_at: string
   stems: Record<string, string> | null
   error: string | null
+  processing_ms: number | null
 }
 
 export function uploadFile(

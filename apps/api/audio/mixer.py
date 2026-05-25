@@ -17,7 +17,7 @@ def mix_stems(stems: dict[str, bytes], volumes: dict[str, float], fmt: str) -> b
         if first_data is None:
             first_data = data
         vol = volumes.get(name, 1.0)
-        segment = AudioSegment.from_file(io.BytesIO(data), format="wav")
+        segment = AudioSegment.from_file(io.BytesIO(data), format="mp3")
         if vol <= 0:
             continue
         if vol < 1.0:
@@ -27,7 +27,7 @@ def mix_stems(stems: dict[str, bytes], volumes: dict[str, float], fmt: str) -> b
 
     if mixed is None:
         # all stems muted — return silence matching first stem duration
-        duration = len(AudioSegment.from_file(io.BytesIO(first_data), format="wav")) if first_data else 0
+        duration = len(AudioSegment.from_file(io.BytesIO(first_data), format="mp3")) if first_data else 0
         mixed = AudioSegment.silent(duration=duration)
 
     buf = io.BytesIO()
