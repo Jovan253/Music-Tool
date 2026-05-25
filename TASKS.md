@@ -21,7 +21,7 @@ Detailed per-change tasks live in `openspec/changes/<name>/tasks.md`.
 - [x] Async job queue — replace daemon thread with Redis + Celery (or RQ); add job progress events
 - [x] Cloud storage — move uploads and stems to Supabase Storage or S3; presigned URLs for playback
 - [x] Database — PostgreSQL job/user records via SQLAlchemy; migrate away from in-memory store
-- [ ] Auth — user accounts (Supabase Auth or Auth.js); jobs scoped to user
+- [x] Auth — user accounts (Supabase Auth); jobs scoped to user (`auth`)
 
 ## Phase 4 — Deploy & Polish
 
@@ -30,7 +30,7 @@ Detailed per-change tasks live in `openspec/changes/<name>/tasks.md`.
 - [ ] Export speed — download all 4 stems from Supabase in parallel before mixing (currently sequential; easy win)
 - [ ] Separation progress bar — stream Demucs progress to the frontend via SSE; worker publishes progress to Redis, API streams to client
 - [ ] UX polish — upload progress indicator, waveform loading states, error surfaces, mobile layout
-- [ ] Performance — GPU inference path, htdemucs_ft model option, processing time targets
+- [x] Performance — MP3 stem storage (~10× faster waveform load), DEMUCS_DEVICE env var for GPU, processing_ms timing (`performance`)
 
 ## Phase 5 — Audio Intelligence
 
