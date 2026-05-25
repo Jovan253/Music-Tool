@@ -16,7 +16,7 @@ from storage.supabase_storage import download_file, upload_file
 
 def _separate_via_modal(audio_bytes: bytes) -> dict[str, bytes]:
     from modal import Function
-    fn = Function.lookup("music-tool-separation", "separate_on_gpu")
+    fn = Function.from_name("music-tool-separation", "separate_on_gpu")
     return fn.remote(audio_bytes)
 
 
