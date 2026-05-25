@@ -14,7 +14,6 @@ interface Props {
 
 export function StemMixer({ jobId, onReset }: Props) {
   const wsRefs = useRef<(WaveSurfer | null)[]>(STEMS.map(() => null))
-  const readyCount = useRef(0)
 
   const [stemUrls, setStemUrls] = useState<Record<StemName, string> | null>(null)
   const [allReady, setAllReady] = useState(false)
@@ -66,8 +65,7 @@ export function StemMixer({ jobId, onReset }: Props) {
       ws.on('finish', () => setPlaying(false))
     }
 
-    readyCount.current++
-    if (readyCount.current === STEMS.length) setAllReady(true)
+    if (wsRefs.current.every(ref => ref !== null)) setAllReady(true)
   }
 
   function togglePlay() {
