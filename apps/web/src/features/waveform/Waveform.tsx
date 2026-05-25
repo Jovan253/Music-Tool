@@ -12,6 +12,7 @@ export function Waveform({ url, onReady, onDestroy }: Props) {
 
   useEffect(() => {
     if (!containerRef.current) return
+    let active = true
     const ws = WaveSurfer.create({
       container: containerRef.current,
       url,
@@ -20,8 +21,8 @@ export function Waveform({ url, onReady, onDestroy }: Props) {
       height: 64,
       normalize: true,
     })
-    ws.on('ready', () => onReady(ws))
-    return () => { onDestroy(); ws.destroy() }
+    ws.on('ready', () => { if (active) onReady(ws) })
+    return () => { active = false; onDestroy(); ws.destroy() }
   }, [url])
 
   return <div ref={containerRef} className="w-full" />
