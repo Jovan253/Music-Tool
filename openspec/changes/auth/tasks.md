@@ -39,8 +39,8 @@
 
 ## 8. Verification
 
-- [ ] 8.1 Unauthenticated: confirm `POST /upload` returns `401` without a token
-- [ ] 8.2 Sign up a new user — confirm the account appears in Supabase → Authentication → Users
-- [ ] 8.3 Log in, upload a file — confirm it processes end-to-end and stems appear
-- [ ] 8.4 Log in as a different user — confirm the first user's jobs return `404`
-- [ ] 8.5 Reload the page while logged in — confirm the session is restored without a new login prompt
+- [x] 8.1 Unauthenticated: confirm `POST /upload` returns `401` without a token
+- [x] 8.2 Sign up a new user — confirm the account appears in Supabase → Authentication → Users
+- [x] 8.3 Log in, upload a file — confirm it processes end-to-end and stems appear
+- [x] 8.4 Log in as a different user — confirm the first user's jobs return `404`
+- [x] 8.5 Reload the page while logged in — confirm the session is restored without a new login prompt
