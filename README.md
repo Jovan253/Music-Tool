@@ -156,9 +156,50 @@ music-tool/
 └── README.md
 ```
 
+## Railway Deployment (backend)
+
+### 1. Create the Railway project
+
+1. Go to [railway.app](https://railway.app) and create a new project
+2. Add a **PostgreSQL** add-on — Railway injects `DATABASE_URL` automatically
+3. Add a **Redis** add-on — Railway injects `REDIS_URL` automatically
+4. Connect your GitHub repo and set the **root directory to `apps/api`**
+
+### 2. Add services
+
+Railway needs two services from this repo:
+
+| Service | Start command |
+|---------|--------------|
+| `web` | `bash start.sh` (runs migrations then uvicorn) |
+| `worker` | `rq worker default --worker-class rq.SimpleWorker` |
+
+Both services share the same environment variables.
+
+### 3. Set environment variables
+
+Set the following on **both** the `web` and `worker` services (use Railway's "Copy variables" feature after setting them on the first service):
+
+| Variable | Value |
+|----------|-------|
+| `SUPABASE_URL` | Your Supabase project URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service role key (Settings → API) |
+| `SUPABASE_ANON_KEY` | Anon key (Settings → API) |
+| `SECRET_KEY` | Random string — generate with `openssl rand -hex 32` |
+| `DEMUCS_DEVICE` | `cpu` (Railway hobby tier has no GPU) |
+| `CORS_ORIGINS` | `http://localhost:5173` for now; update to your Vercel URL after frontend deploy |
+
+`DATABASE_URL` and `REDIS_URL` are injected automatically by the add-ons — no need to set them manually.
+
+### 4. Deploy
+
+Push to `main` — Railway auto-deploys. The `web` service runs `alembic upgrade head` on every start before uvicorn begins accepting traffic.
+
+Smoke test: `GET https://<your-railway-domain>/health` → `{"status":"ok"}`
+
 ## Notes
 
 - The frontend reads `VITE_API_BASE_URL` from `.env` — must be prefixed `VITE_` for Vite to expose it client-side. Defaults to `http://localhost:8000`.
-- CORS is pre-configured to allow `http://localhost:5173` in development.
+- CORS origins are driven by the `CORS_ORIGINS` env var (comma-separated). Falls back to `http://localhost:5173` for local dev.
 - Never commit `.env` files — they are gitignored.
 - Stem separation (Demucs) takes 30–60 seconds per track on CPU. The job will show as processing until the worker completes it.

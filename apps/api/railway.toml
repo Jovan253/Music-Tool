@@ -1,0 +1,14 @@
+[build]
+builder = "nixpacks"
+
+[[services]]
+name = "web"
+startCommand = "bash start.sh"
+
+[services.deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+
+[[services]]
+name = "worker"
+startCommand = "rq worker default --worker-class rq.SimpleWorker"

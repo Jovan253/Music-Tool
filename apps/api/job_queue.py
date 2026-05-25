@@ -9,7 +9,7 @@ _queue: rq.Queue | None = None
 def get_queue() -> rq.Queue:
     global _queue
     if _queue is None:
-        url = os.environ.get("RQ_REDIS_URL", "redis://localhost:6379/0")
+        url = os.environ.get("REDIS_URL") or os.environ.get("RQ_REDIS_URL", "redis://localhost:6379/0")
         try:
             conn = redis.Redis.from_url(url, socket_connect_timeout=2)
             conn.ping()
