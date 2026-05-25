@@ -8,6 +8,7 @@ interface Props {
   muted: boolean
   soloed: boolean
   onReady: (ws: WaveSurfer) => void
+  onDestroy: () => void
   onVolumeChange: (v: number) => void
   onMuteToggle: () => void
   onSoloToggle: () => void
@@ -22,7 +23,7 @@ const STEM_COLORS: Record<string, string> = {
 
 export function TrackRow({
   stemName, audioUrl, volume, muted, soloed,
-  onReady, onVolumeChange, onMuteToggle, onSoloToggle,
+  onReady, onDestroy, onVolumeChange, onMuteToggle, onSoloToggle,
 }: Props) {
   const color = STEM_COLORS[stemName] ?? '#a855f7'
 
@@ -33,7 +34,7 @@ export function TrackRow({
       </div>
 
       <div className="min-w-0 flex-1">
-        <Waveform url={audioUrl} onReady={onReady} />
+        <Waveform url={audioUrl} onReady={onReady} onDestroy={onDestroy} />
       </div>
 
       <div className="flex shrink-0 items-center gap-2">

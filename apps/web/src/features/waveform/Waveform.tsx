@@ -4,9 +4,10 @@ import WaveSurfer from 'wavesurfer.js'
 interface Props {
   url: string
   onReady: (ws: WaveSurfer) => void
+  onDestroy: () => void
 }
 
-export function Waveform({ url, onReady }: Props) {
+export function Waveform({ url, onReady, onDestroy }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -20,7 +21,7 @@ export function Waveform({ url, onReady }: Props) {
       normalize: true,
     })
     ws.on('ready', () => onReady(ws))
-    return () => { ws.destroy() }
+    return () => { onDestroy(); ws.destroy() }
   }, [url])
 
   return <div ref={containerRef} className="w-full" />

@@ -126,6 +126,7 @@ export function StemMixer({ jobId, onReset }: Props) {
                 muted={muted[stem]}
                 soloed={soloedStem === stem}
                 onReady={(ws) => handleReady(ws, i)}
+                onDestroy={() => { wsRefs.current[i] = null }}
                 onVolumeChange={(v) => setVolume(stem, v)}
                 onMuteToggle={() => toggleMute(stem)}
                 onSoloToggle={() => toggleSolo(stem)}
