@@ -21,6 +21,7 @@ dependencies = [
     "rq>=1.16",
     "redis>=5.0",
     "supabase>=2.0",
+    "modal>=0.64",
 ]
 
 [tool.setuptools.packages.find]

@@ -1,4 +1,5 @@
 import io
+import os
 import shutil
 import tempfile
 import time
@@ -13,6 +14,12 @@ from services.jobs import get_job, update_job
 from storage.supabase_storage import download_file, upload_file
 
 
+def _separate_via_modal(audio_bytes: bytes) -> dict[str, bytes]:
+    from modal import Function
+    fn = Function.lookup("music-tool-separation", "separate_on_gpu")
+    return fn.remote(audio_bytes)
+
+
 def run_separation(job_id: str) -> None:
     job = get_job(job_id)
     if job is None:
@@ -25,29 +32,38 @@ def run_separation(job_id: str) -> None:
         upload_path = job.file_path
         ext = upload_path.rsplit(".", 1)[-1] if "." in upload_path else "wav"
         audio_bytes = download_file("uploads", upload_path)
-        input_file = Path(tmp_dir) / f"input.{ext}"
-        input_file.write_bytes(audio_bytes)
 
-        stems_dir = str(Path(tmp_dir) / "stems")
+        use_modal = bool(os.environ.get("MODAL_TOKEN_ID"))
 
         t0 = time.monotonic()
-        local_stems = separate(str(input_file), stems_dir, device=get_demucs_device())
-        processing_ms = int((time.monotonic() - t0) * 1000)
 
-        supabase_stems: dict[str, str] = {}
-        for stem_name in STEM_NAMES:
-            local_wav = local_stems.get(stem_name)
-            if not local_wav:
-                continue
+        if use_modal:
+            stem_mp3s = _separate_via_modal(audio_bytes)
+            processing_ms = int((time.monotonic() - t0) * 1000)
 
-            mp3_path = Path(local_wav).with_suffix(".mp3")
-            buf = io.BytesIO()
-            AudioSegment.from_wav(local_wav).export(buf, format="mp3", bitrate="256k")
-            mp3_bytes = buf.getvalue()
+            supabase_stems: dict[str, str] = {}
+            for stem_name, mp3_bytes in stem_mp3s.items():
+                supabase_path = f"{job_id}/{stem_name}.mp3"
+                upload_file("stems", supabase_path, mp3_bytes, "audio/mpeg")
+                supabase_stems[stem_name] = supabase_path
+        else:
+            input_file = Path(tmp_dir) / f"input.{ext}"
+            input_file.write_bytes(audio_bytes)
+            stems_dir = str(Path(tmp_dir) / "stems")
 
-            supabase_path = f"{job_id}/{stem_name}.mp3"
-            upload_file("stems", supabase_path, mp3_bytes, "audio/mpeg")
-            supabase_stems[stem_name] = supabase_path
+            local_stems = separate(str(input_file), stems_dir, device=get_demucs_device())
+            processing_ms = int((time.monotonic() - t0) * 1000)
+
+            supabase_stems = {}
+            for stem_name in STEM_NAMES:
+                local_wav = local_stems.get(stem_name)
+                if not local_wav:
+                    continue
+                buf = io.BytesIO()
+                AudioSegment.from_wav(local_wav).export(buf, format="mp3", bitrate="256k")
+                supabase_path = f"{job_id}/{stem_name}.mp3"
+                upload_file("stems", supabase_path, buf.getvalue(), "audio/mpeg")
+                supabase_stems[stem_name] = supabase_path
 
         update_job(job_id, status="done", stems=supabase_stems, processing_ms=processing_ms)
     except Exception as exc:

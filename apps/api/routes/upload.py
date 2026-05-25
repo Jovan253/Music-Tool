@@ -44,7 +44,7 @@ async def upload_audio(
         raise HTTPException(status_code=500, detail=f"Storage upload failed: {exc}") from exc
     update_job(job.job_id, file_path=supabase_path)
 
-    get_queue().enqueue(run_separation, job.job_id, job_timeout=900)
+    get_queue().enqueue(run_separation, job.job_id, job_timeout=120)
 
     return JSONResponse(
         status_code=201,
