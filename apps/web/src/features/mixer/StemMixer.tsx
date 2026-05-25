@@ -59,11 +59,6 @@ export function StemMixer({ jobId, onReset }: Props) {
 
     if (index === 0) {
       ws.on('finish', () => setPlaying(false))
-      ws.on('audioprocess', (currentTime: number) => {
-        wsRefs.current.forEach((other, i) => {
-          if (i !== 0) (other as any)?.updateProgress?.(currentTime)
-        })
-      })
     }
 
     readyCount.current++
