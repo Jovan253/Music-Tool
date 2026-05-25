@@ -18,4 +18,8 @@ def get_stem(job_id: str, stem_name: str, user_id: str = Depends(get_current_use
     path = job.stems.get(stem_name)
     if not path:
         raise HTTPException(status_code=404, detail="Stem not found")
-    return {"url": create_signed_url("stems", path, 3600)}
+    try:
+        url = create_signed_url("stems", path, 3600)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Could not generate stem URL: {exc}")
+    return {"url": url}
