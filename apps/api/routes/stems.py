@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import RedirectResponse
 from auth import get_current_user
 from services.jobs import get_job
 from storage.supabase_storage import create_signed_url
@@ -19,5 +18,4 @@ def get_stem(job_id: str, stem_name: str, user_id: str = Depends(get_current_use
     path = job.stems.get(stem_name)
     if not path:
         raise HTTPException(status_code=404, detail="Stem not found")
-    signed_url = create_signed_url("stems", path, 3600)
-    return RedirectResponse(url=signed_url, status_code=307)
+    return {"url": create_signed_url("stems", path, 3600)}

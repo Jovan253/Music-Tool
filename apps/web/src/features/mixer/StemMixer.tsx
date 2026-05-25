@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type WaveSurfer from 'wavesurfer.js'
-import { getStemUrl } from '../../lib/api'
+import { fetchStemUrl } from '../../lib/api'
 import { ExportButton } from '../export/ExportButton'
 import { TrackRow } from './TrackRow'
 
@@ -13,10 +13,10 @@ interface Props {
 }
 
 export function StemMixer({ jobId, onReset }: Props) {
-  const audioCtxRef = useRef<AudioContext>(new AudioContext())
   const wsRefs = useRef<(WaveSurfer | null)[]>(STEMS.map(() => null))
   const readyCount = useRef(0)
 
+  const [stemUrls, setStemUrls] = useState<Record<StemName, string> | null>(null)
   const [allReady, setAllReady] = useState(false)
   const [playing, setPlaying] = useState(false)
   const [exporting, setExporting] = useState(false)
@@ -29,11 +29,15 @@ export function StemMixer({ jobId, onReset }: Props) {
   const [soloedStem, setSoloedStem] = useState<StemName | null>(null)
 
   useEffect(() => {
-    const ctx = audioCtxRef.current
-    return () => { ctx.close() }
-  }, [])
+    let cancelled = false
+    Promise.all(STEMS.map(stem => fetchStemUrl(jobId, stem).then(url => [stem, url] as const)))
+      .then(entries => {
+        if (!cancelled) setStemUrls(Object.fromEntries(entries) as Record<StemName, string>)
+      })
+      .catch(console.error)
+    return () => { cancelled = true }
+  }, [jobId])
 
-  // Apply effective volumes whenever mix state changes
   useEffect(() => {
     if (!allReady) return
     STEMS.forEach((stem, i) => {
@@ -47,27 +51,27 @@ export function StemMixer({ jobId, onReset }: Props) {
   function handleReady(ws: WaveSurfer, index: number) {
     wsRefs.current[index] = ws
 
-    // Sync seek: when this waveform is clicked/dragged, update all others
-    ws.on('interaction', () => {
-      const time = ws.getCurrentTime()
+    ws.on('interaction', (newTime: number) => {
       wsRefs.current.forEach((other, i) => {
-        if (i !== index) other?.setTime(time)
+        if (i !== index) other?.setTime(newTime)
       })
     })
 
     if (index === 0) {
       ws.on('finish', () => setPlaying(false))
+      ws.on('audioprocess', (currentTime: number) => {
+        wsRefs.current.forEach((other, i) => {
+          if (i !== 0) (other as any)?.updateProgress?.(currentTime)
+        })
+      })
     }
 
     readyCount.current++
     if (readyCount.current === STEMS.length) setAllReady(true)
   }
 
-  async function togglePlay() {
+  function togglePlay() {
     if (!allReady) return
-    if (audioCtxRef.current.state === 'suspended') {
-      await audioCtxRef.current.resume()
-    }
     if (playing) {
       wsRefs.current.forEach(ws => ws?.pause())
       setPlaying(false)
@@ -102,27 +106,28 @@ export function StemMixer({ jobId, onReset }: Props) {
           </button>
         </div>
 
-        {!allReady && (
+        {(!stemUrls || !allReady) && (
           <p className="mb-4 text-sm text-gray-500 animate-pulse">Loading waveforms…</p>
         )}
 
-        <div className="space-y-2">
-          {STEMS.map((stem, i) => (
-            <TrackRow
-              key={stem}
-              stemName={stem}
-              audioUrl={getStemUrl(jobId, stem)}
-              audioContext={audioCtxRef.current}
-              volume={volumes[stem]}
-              muted={muted[stem]}
-              soloed={soloedStem === stem}
-              onReady={(ws) => handleReady(ws, i)}
-              onVolumeChange={(v) => setVolume(stem, v)}
-              onMuteToggle={() => toggleMute(stem)}
-              onSoloToggle={() => toggleSolo(stem)}
-            />
-          ))}
-        </div>
+        {stemUrls && (
+          <div className="space-y-2">
+            {STEMS.map((stem, i) => (
+              <TrackRow
+                key={stem}
+                stemName={stem}
+                audioUrl={stemUrls[stem]}
+                volume={volumes[stem]}
+                muted={muted[stem]}
+                soloed={soloedStem === stem}
+                onReady={(ws) => handleReady(ws, i)}
+                onVolumeChange={(v) => setVolume(stem, v)}
+                onMuteToggle={() => toggleMute(stem)}
+                onSoloToggle={() => toggleSolo(stem)}
+              />
+            ))}
+          </div>
+        )}
 
         <div className="mt-8 flex justify-center gap-4">
           <button

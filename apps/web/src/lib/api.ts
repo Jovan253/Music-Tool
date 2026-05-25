@@ -79,8 +79,9 @@ export function getJobStatus(jobId: string): Promise<JobResponse> {
   return request<JobResponse>(`/jobs/${jobId}`)
 }
 
-export function getStemUrl(jobId: string, stemName: string): string {
-  return `${BASE_URL}/jobs/${jobId}/stems/${stemName}`
+export async function fetchStemUrl(jobId: string, stemName: string): Promise<string> {
+  const data = await request<{ url: string }>(`/jobs/${jobId}/stems/${stemName}`)
+  return data.url
 }
 
 export async function exportMix(

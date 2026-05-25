@@ -4,7 +4,6 @@ import { Waveform } from '../waveform/Waveform'
 interface Props {
   stemName: string
   audioUrl: string
-  audioContext: AudioContext
   volume: number
   muted: boolean
   soloed: boolean
@@ -22,7 +21,7 @@ const STEM_COLORS: Record<string, string> = {
 }
 
 export function TrackRow({
-  stemName, audioUrl, audioContext, volume, muted, soloed,
+  stemName, audioUrl, volume, muted, soloed,
   onReady, onVolumeChange, onMuteToggle, onSoloToggle,
 }: Props) {
   const color = STEM_COLORS[stemName] ?? '#a855f7'
@@ -34,7 +33,7 @@ export function TrackRow({
       </div>
 
       <div className="min-w-0 flex-1">
-        <Waveform url={audioUrl} audioContext={audioContext} onReady={onReady} />
+        <Waveform url={audioUrl} onReady={onReady} />
       </div>
 
       <div className="flex shrink-0 items-center gap-2">
