@@ -32,12 +32,13 @@ def _to_record(row: JobModel) -> JobRecord:
     )
 
 
-def create_job(filename: str, file_path: str) -> JobRecord:
+def create_job(filename: str, file_path: str, user_id: str) -> JobRecord:
     row = JobModel(
         job_id=str(uuid.uuid4()),
         status="pending",
         filename=filename,
         file_path=file_path,
+        user_id=user_id,
         created_at=datetime.now(timezone.utc),
     )
     with SessionLocal() as db:
@@ -47,10 +48,14 @@ def create_job(filename: str, file_path: str) -> JobRecord:
         return _to_record(row)
 
 
-def get_job(job_id: str) -> JobRecord | None:
+def get_job(job_id: str, user_id: str | None = None) -> JobRecord | None:
     with SessionLocal() as db:
         row = db.get(JobModel, job_id)
-        return _to_record(row) if row else None
+        if row is None:
+            return None
+        if user_id is not None and row.user_id != user_id:
+            return None
+        return _to_record(row)
 
 
 def get_stale_processing_jobs() -> list[str]:

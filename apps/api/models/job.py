@@ -10,6 +10,7 @@ class JobModel(Base):
     status = Column(String, nullable=False)
     filename = Column(String, nullable=False)
     file_path = Column(String, nullable=False, default="")
+    user_id = Column(String, nullable=True)
     stems = Column(JSON, nullable=True)
     error = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))

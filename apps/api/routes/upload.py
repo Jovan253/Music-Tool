@@ -1,6 +1,7 @@
 import logging
-from fastapi import APIRouter, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
+from auth import get_current_user
 from services.jobs import create_job, update_job
 from workers.separation import run_separation
 from job_queue import get_queue
@@ -11,15 +12,16 @@ log = logging.getLogger(__name__)
 router = APIRouter()
 
 ALLOWED_EXTENSIONS = {"mp3", "wav", "m4a"}
-ALLOWED_MIME_TYPES = {"audio/mpeg", "audio/wav", "audio/x-wav", "audio/mp4", "audio/x-m4a", "video/mp4"}
 MAX_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB
 
 _MIME_FOR_EXT = {"mp3": "audio/mpeg", "wav": "audio/wav", "m4a": "audio/mp4"}
 
 
 @router.post("/upload", status_code=201)
-async def upload_audio(file: UploadFile):
-    log.info("=== UPLOAD HANDLER (new Supabase version) ===")
+async def upload_audio(
+    file: UploadFile,
+    user_id: str = Depends(get_current_user),
+):
     ext = (file.filename or "").rsplit(".", 1)[-1].lower()
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(
@@ -31,7 +33,7 @@ async def upload_audio(file: UploadFile):
     if len(contents) > MAX_SIZE_BYTES:
         raise HTTPException(status_code=413, detail="File too large. Maximum size is 50 MB")
 
-    job = create_job(filename=file.filename or f"upload.{ext}", file_path="")
+    job = create_job(filename=file.filename or f"upload.{ext}", file_path="", user_id=user_id)
     supabase_path = f"{job.job_id}.{ext}"
     log.info("Uploading %s to Supabase uploads bucket at path %s", file.filename, supabase_path)
     try:

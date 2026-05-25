@@ -1,5 +1,11 @@
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
 
+let _authToken: string | null = null
+
+export function setAuthToken(token: string | null): void {
+  _authToken = token
+}
+
 export interface UploadResponse {
   job_id: string
   status: string
@@ -41,12 +47,18 @@ export function uploadFile(
 
     xhr.onerror = () => reject(new Error('Network error — please try again'))
     xhr.open('POST', `${BASE_URL}/upload`)
+    if (_authToken) xhr.setRequestHeader('Authorization', `Bearer ${_authToken}`)
     xhr.send(form)
   })
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, init)
+  const headers: Record<string, string> = {
+    ...(init?.headers as Record<string, string>),
+  }
+  if (_authToken) headers['Authorization'] = `Bearer ${_authToken}`
+
+  const res = await fetch(`${BASE_URL}${path}`, { ...init, headers })
   if (!res.ok) {
     throw new Error(`API error ${res.status}: ${res.statusText}`)
   }
@@ -76,9 +88,12 @@ export async function exportMix(
   stems: Record<string, number>,
   format: 'mp3' | 'wav',
 ): Promise<Blob> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (_authToken) headers['Authorization'] = `Bearer ${_authToken}`
+
   const res = await fetch(`${BASE_URL}/jobs/${jobId}/export`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({ stems, format }),
   })
   if (!res.ok) throw new Error(`Export failed: ${res.status}`)

@@ -24,6 +24,10 @@ def download_file(bucket: str, path: str) -> bytes:
     return _client.storage.from_(bucket).download(path)
 
 
+def get_client() -> Client:
+    return _client
+
+
 def create_signed_url(bucket: str, path: str, ttl_seconds: int) -> str:
     result = _client.storage.from_(bucket).create_signed_url(path, ttl_seconds)
     if isinstance(result, dict):

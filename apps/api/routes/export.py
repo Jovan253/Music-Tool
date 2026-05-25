@@ -1,8 +1,9 @@
 import io
 from typing import Literal
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from auth import get_current_user
 from services.jobs import get_job
 from audio.mixer import mix_stems
 from storage.supabase_storage import download_file
@@ -18,8 +19,8 @@ class ExportRequest(BaseModel):
 
 
 @router.post("/jobs/{job_id}/export")
-def export_mix(job_id: str, body: ExportRequest):
-    job = get_job(job_id)
+def export_mix(job_id: str, body: ExportRequest, user_id: str = Depends(get_current_user)):
+    job = get_job(job_id, user_id=user_id)
     if job is None or job.status != "done" or job.stems is None:
         raise HTTPException(status_code=404, detail="Job not found or not complete")
 
