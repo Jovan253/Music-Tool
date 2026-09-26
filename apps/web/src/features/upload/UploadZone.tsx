@@ -88,15 +88,39 @@ export function UploadZone({ onReady }: Props) {
   const isInteractive = state.kind === 'idle' || state.kind === 'error'
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-950 p-6">
-      <div className="w-full max-w-lg">
-        <h1 className="mb-8 text-center text-3xl font-semibold text-white">Music Tool</h1>
+    <div className="flex min-h-screen items-center justify-center p-4 sm:p-6">
+      <div className="w-full max-w-xl">
+        <header className="mb-8 text-center">
+          <h1 className="font-mono text-2xl font-semibold tracking-tight text-console-100 sm:text-3xl">
+            Music Tool
+          </h1>
+          <p className="legend mt-2 text-console-500">
+            split a track into vocals · drums · bass · other
+          </p>
+        </header>
 
         {state.kind === 'processing' ? (
-          <div className="rounded-xl border border-purple-800 bg-purple-950 p-8 text-center">
-            <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-purple-400 border-t-transparent" />
-            <p className="text-lg font-medium text-purple-200">Separating stems…</p>
-            <p className="mt-2 text-sm text-purple-400">This takes 1–3 minutes. Hang tight.</p>
+          <div className="panel rounded-lg p-8 text-center">
+            <div className="mx-auto mb-5 flex items-end justify-center gap-1" aria-hidden>
+              {/* Four bars, one per channel, bouncing while the GPU works. */}
+              {['#ff6f91', '#ffa94d', '#57a5ff', '#3ddc97'].map((c, i) => (
+                <span
+                  key={c}
+                  className="w-1.5 animate-pulse rounded-full"
+                  style={{
+                    backgroundColor: c,
+                    height: `${14 + i * 6}px`,
+                    animationDelay: `${i * 140}ms`,
+                    animationDuration: '900ms',
+                  }}
+                />
+              ))}
+            </div>
+            <p className="legend text-console-200">separating</p>
+            <p className="mt-2 text-sm text-console-400">
+              Usually about 30 seconds on the GPU. The first run of the day takes
+              a little longer while the container warms up.
+            </p>
           </div>
         ) : (
           <div
@@ -108,12 +132,13 @@ export function UploadZone({ onReady }: Props) {
             onDragLeave={() => setDragging(false)}
             onDrop={onDrop}
             className={[
-              'cursor-pointer rounded-xl border-2 border-dashed p-12 text-center transition-colors',
+              'rounded-lg border border-dashed p-10 text-center transition-colors sm:p-14',
+              'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-transport',
               dragging
-                ? 'border-purple-400 bg-purple-950'
+                ? 'cursor-copy border-transport bg-transport/10'
                 : state.kind === 'uploading'
-                  ? 'cursor-default border-gray-700 bg-gray-900'
-                  : 'border-gray-700 bg-gray-900 hover:border-purple-600',
+                  ? 'cursor-default border-console-700 bg-console-900'
+                  : 'cursor-pointer border-console-600 bg-console-900 hover:border-transport/70 hover:bg-console-850',
             ].join(' ')}
           >
             <input
@@ -125,32 +150,48 @@ export function UploadZone({ onReady }: Props) {
             />
 
             {state.kind === 'uploading' ? (
-              <div className="space-y-4">
-                <p className="text-gray-400">Uploading… {state.progress}%</p>
-                <div className="h-2 overflow-hidden rounded-full bg-gray-800">
+              <div className="space-y-3">
+                <div className="flex items-baseline justify-between">
+                  <span className="legend text-console-300">uploading</span>
+                  <span className="legend tabular-nums text-console-300">{state.progress}%</span>
+                </div>
+                <div
+                  role="progressbar"
+                  aria-valuenow={state.progress}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  className="h-1.5 overflow-hidden rounded-full bg-console-800 shadow-[inset_0_1px_1px_rgba(0,0,0,0.6)]"
+                >
                   <div
-                    className="h-full rounded-full bg-purple-500 transition-all duration-150"
+                    className="h-full rounded-full bg-transport transition-all duration-150"
                     style={{ width: `${state.progress}%` }}
                   />
                 </div>
               </div>
             ) : (
-              <div className="space-y-3">
-                <p className="text-lg text-gray-300">
-                  {dragging ? 'Drop to upload' : 'Drag & drop an audio file'}
+              <div className="space-y-2">
+                <p className="text-base text-console-200">
+                  {dragging ? 'Drop it' : 'Drop an audio file, or click to browse'}
                 </p>
-                <p className="text-sm text-gray-500">or click to browse</p>
-                <p className="text-xs text-gray-600">mp3 · wav · m4a · max {MAX_SIZE_MB} MB</p>
+                <p className="legend text-console-500">
+                  mp3 · wav · m4a · up to {MAX_SIZE_MB} mb
+                </p>
               </div>
             )}
           </div>
         )}
 
         {state.kind === 'error' && (
-          <div className="mt-4 flex items-center justify-between rounded-lg border border-red-800 bg-red-950 px-4 py-3">
-            <p className="text-sm text-red-300">{state.message}</p>
-            <button onClick={reset} className="ml-4 text-xs text-red-400 hover:text-red-200">
-              Dismiss
+          <div className="mt-4 flex items-start justify-between gap-4 rounded-md border border-danger/40 bg-danger/10 px-4 py-3">
+            <div>
+              <p className="legend text-danger">error</p>
+              <p className="mt-1 text-sm text-console-300">{state.message}</p>
+            </div>
+            <button
+              onClick={reset}
+              className="legend shrink-0 text-console-500 transition-colors hover:text-console-200"
+            >
+              dismiss
             </button>
           </div>
         )}

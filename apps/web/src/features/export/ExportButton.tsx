@@ -39,15 +39,15 @@ export function ExportButton({ jobId, volumes, muted, format = 'mp3', disabled =
   }
 
   return (
-    <div className="flex flex-col items-center gap-1">
+    <div className="flex flex-col items-end gap-1">
       <button
         onClick={handleExport}
         disabled={loading || disabled}
-        className="w-32 rounded-full border border-purple-600 py-3 text-sm font-semibold text-purple-300 transition-colors hover:bg-purple-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+        className="legend rounded border border-console-600 bg-console-800 px-3 py-2 text-console-300 transition-colors hover:border-transport hover:text-console-100 disabled:cursor-not-allowed disabled:opacity-35 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-transport"
       >
-        {loading ? 'Exporting…' : `Export ${format.toUpperCase()}`}
+        {loading ? 'rendering…' : `↓ ${format}`}
       </button>
-      {error && <p className="text-xs text-red-400">{error}</p>}
+      {error && <p className="max-w-40 text-right text-[11px] text-danger">{error}</p>}
     </div>
   )
 }

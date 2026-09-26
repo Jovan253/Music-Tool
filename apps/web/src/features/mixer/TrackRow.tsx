@@ -1,5 +1,6 @@
 import type WaveSurfer from 'wavesurfer.js'
 import { Waveform } from '../waveform/Waveform'
+import { STEM_COLORS } from './stemColors'
 
 interface Props {
   stemName: string
@@ -7,6 +8,7 @@ interface Props {
   volume: number
   muted: boolean
   soloed: boolean
+  dimmed: boolean
   onReady: (ws: WaveSurfer) => void
   onDestroy: () => void
   onVolumeChange: (v: number) => void
@@ -14,59 +16,108 @@ interface Props {
   onSoloToggle: () => void
 }
 
-const STEM_COLORS: Record<string, string> = {
-  vocals: '#ec4899',
-  drums: '#f97316',
-  bass: '#3b82f6',
-  other: '#22c55e',
-}
-
 export function TrackRow({
-  stemName, audioUrl, volume, muted, soloed,
+  stemName, audioUrl, volume, muted, soloed, dimmed,
   onReady, onDestroy, onVolumeChange, onMuteToggle, onSoloToggle,
 }: Props) {
   const color = STEM_COLORS[stemName] ?? '#a855f7'
+  const silent = muted || dimmed
 
   return (
-    <div className="flex items-center gap-3 rounded-lg bg-gray-900 p-3">
-      <div className="w-16 shrink-0">
-        <p className="text-sm font-medium capitalize" style={{ color }}>{stemName}</p>
+    <div
+      className={[
+        'panel rounded-md transition-opacity',
+        'grid items-center gap-x-4 gap-y-3 px-3 py-3',
+        // Mobile stacks label above waveform with controls beneath; desktop is one row.
+        'grid-cols-[auto_1fr] sm:grid-cols-[7rem_1fr_auto]',
+        silent ? 'opacity-55' : 'opacity-100',
+      ].join(' ')}
+    >
+      <div className="col-span-2 flex items-center gap-2 sm:col-span-1">
+        <span
+          aria-hidden
+          className="h-6 w-1 shrink-0 rounded-full"
+          style={{
+            backgroundColor: color,
+            boxShadow: silent ? 'none' : `0 0 8px ${color}66`,
+          }}
+        />
+        <span className="legend text-console-200">{stemName}</span>
       </div>
 
-      <div className="min-w-0 flex-1">
-        <Waveform url={audioUrl} onReady={onReady} onDestroy={onDestroy} />
-      </div>
-
-      <div className="flex shrink-0 items-center gap-2">
-        <button
-          onClick={onMuteToggle}
-          title="Mute"
-          className={`w-7 rounded px-1.5 py-1 text-xs font-bold transition-colors ${
-            muted ? 'bg-yellow-500 text-gray-950' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-          }`}
-        >
-          M
-        </button>
-        <button
-          onClick={onSoloToggle}
-          title="Solo"
-          className={`w-7 rounded px-1.5 py-1 text-xs font-bold transition-colors ${
-            soloed ? 'bg-purple-500 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-          }`}
-        >
-          S
-        </button>
-        <input
-          type="range"
-          min="0"
-          max="1"
-          step="0.01"
-          value={volume}
-          onChange={(e) => onVolumeChange(parseFloat(e.target.value))}
-          disabled={muted}
-          className="w-20 accent-purple-500 disabled:opacity-40"
+      <div className="col-span-2 min-w-0 sm:col-span-1">
+        <Waveform
+          url={audioUrl}
+          color={color}
+          dimmed={silent}
+          onReady={onReady}
+          onDestroy={onDestroy}
         />
       </div>
+
+      <div className="col-span-2 flex items-center justify-between gap-3 sm:col-span-1 sm:justify-end">
+        <div className="flex items-center gap-1.5">
+          <ChannelButton
+            label="S"
+            title={`Solo ${stemName}`}
+            active={soloed}
+            activeClass="bg-solo text-console-1000 shadow-[0_0_10px_rgba(255,212,59,0.45)]"
+            onClick={onSoloToggle}
+          />
+          <ChannelButton
+            label="M"
+            title={`Mute ${stemName}`}
+            active={muted}
+            activeClass="bg-mute text-console-1000 shadow-[0_0_10px_rgba(255,122,122,0.45)]"
+            onClick={onMuteToggle}
+          />
+        </div>
+
+        <div className="flex items-center gap-2">
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.01"
+            value={volume}
+            onChange={(e) => onVolumeChange(parseFloat(e.target.value))}
+            disabled={muted}
+            aria-label={`${stemName} level`}
+            className="fader w-28 sm:w-24"
+          />
+          {/* Fixed width and tabular digits so the number does not jitter while dragging. */}
+          <span className="legend w-8 text-right tabular-nums text-console-400">
+            {Math.round(volume * 100)}
+          </span>
+        </div>
+      </div>
     </div>
+  )
+}
+
+function ChannelButton({
+  label, title, active, activeClass, onClick,
+}: {
+  label: string
+  title: string
+  active: boolean
+  activeClass: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      aria-pressed={active}
+      className={[
+        'h-7 w-7 rounded border font-mono text-[11px] font-bold transition-all',
+        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-transport',
+        active
+          ? `border-transparent ${activeClass}`
+          : 'border-console-600 bg-console-800 text-console-400 hover:border-console-500 hover:text-console-200',
+      ].join(' ')}
+    >
+      {label}
+    </button>
   )
 }

@@ -30,14 +30,20 @@ export function LoginPage() {
 
   if (signupDone) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-950">
-        <div className="w-full max-w-sm p-8 bg-gray-900 rounded-2xl text-center">
-          <p className="text-white text-lg font-medium">Check your email to confirm your account, then log in.</p>
+      <div className="flex min-h-screen items-center justify-center p-4">
+        <div className="panel w-full max-w-sm rounded-lg p-8 text-center">
+          <p className="legend text-console-400">check your inbox</p>
+          <p className="mt-3 text-console-200">
+            Confirm your email address, then sign in.
+          </p>
+          <p className="mt-2 text-sm text-console-500">
+            The message can take a minute and sometimes lands in spam.
+          </p>
           <button
-            className="mt-6 text-sm text-indigo-400 hover:underline"
+            className="legend mt-6 text-transport transition-opacity hover:opacity-80"
             onClick={() => { setMode('login'); setSignupDone(false) }}
           >
-            Back to login
+            back to sign in
           </button>
         </div>
       </div>
@@ -45,58 +51,91 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-950">
-      <div className="w-full max-w-sm p-8 bg-gray-900 rounded-2xl shadow-xl">
-        <h1 className="text-2xl font-bold text-white mb-6">
-          {mode === 'login' ? 'Sign in' : 'Create account'}
-        </h1>
+    <div className="flex min-h-screen items-center justify-center p-4">
+      <div className="w-full max-w-sm">
+        <header className="mb-6 text-center">
+          <h1 className="font-mono text-2xl font-semibold tracking-tight text-console-100">
+            Music Tool
+          </h1>
+          <p className="legend mt-2 text-console-500">
+            split a track into vocals · drums · bass · other
+          </p>
+        </header>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm text-gray-400 mb-1">Email</label>
-            <input
+        <div className="panel rounded-lg p-6">
+          <p className="legend mb-5 text-console-400">
+            {mode === 'login' ? 'sign in' : 'create account'}
+          </p>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <Field
+              label="email"
               type="email"
-              required
               value={email}
-              onChange={e => setEmail(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg bg-gray-800 text-white border border-gray-700 focus:outline-none focus:border-indigo-500"
+              onChange={setEmail}
+              autoComplete="email"
             />
-          </div>
-          <div>
-            <label className="block text-sm text-gray-400 mb-1">Password</label>
-            <input
+            <Field
+              label="password"
               type="password"
-              required
-              minLength={6}
               value={password}
-              onChange={e => setPassword(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg bg-gray-800 text-white border border-gray-700 focus:outline-none focus:border-indigo-500"
+              onChange={setPassword}
+              minLength={6}
+              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
             />
-          </div>
 
-          {error && (
-            <p className="text-sm text-red-400">{error}</p>
-          )}
+            {error && (
+              <div className="rounded border border-danger/40 bg-danger/10 px-3 py-2">
+                <p className="text-sm text-console-300">{error}</p>
+              </div>
+            )}
 
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded bg-transport py-2.5 text-sm font-medium text-white shadow-[0_0_16px_rgba(124,92,255,0.35)] transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-transport"
+            >
+              {loading ? 'working…' : mode === 'login' ? 'Sign in' : 'Create account'}
+            </button>
+          </form>
+        </div>
+
+        <p className="mt-5 text-center text-sm text-console-500">
+          {mode === 'login' ? "No account yet?" : 'Already registered?'}{' '}
           <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-2 px-4 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium rounded-lg transition-colors"
-          >
-            {loading ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create account'}
-          </button>
-        </form>
-
-        <p className="mt-4 text-sm text-center text-gray-500">
-          {mode === 'login' ? "Don't have an account?" : 'Already have an account?'}{' '}
-          <button
-            className="text-indigo-400 hover:underline"
+            className="text-transport transition-opacity hover:opacity-80"
             onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError(null) }}
           >
-            {mode === 'login' ? 'Sign up' : 'Sign in'}
+            {mode === 'login' ? 'Create one' : 'Sign in'}
           </button>
         </p>
       </div>
     </div>
+  )
+}
+
+function Field({
+  label, type, value, onChange, minLength, autoComplete,
+}: {
+  label: string
+  type: string
+  value: string
+  onChange: (v: string) => void
+  minLength?: number
+  autoComplete?: string
+}) {
+  return (
+    <label className="block">
+      <span className="legend mb-1.5 block text-console-500">{label}</span>
+      <input
+        type={type}
+        required
+        minLength={minLength}
+        autoComplete={autoComplete}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded border border-console-600 bg-console-950 px-3 py-2 text-console-100 shadow-[inset_0_1px_2px_rgba(0,0,0,0.5)] transition-colors placeholder:text-console-600 focus:border-transport focus:outline-none"
+      />
+    </label>
   )
 }

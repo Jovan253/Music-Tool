@@ -1,113 +1,150 @@
 @import "tailwindcss";
 
-:root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+/* Design tokens for a studio-console look. Committed to a single dark theme:
+   mixing hardware is dark, and a light variant would read as a generic web form. */
+@theme {
+  --color-console-1000: #08080a;
+  --color-console-950: #0c0c10;
+  --color-console-900: #121217;
+  --color-console-850: #17171d;
+  --color-console-800: #1d1d25;
+  --color-console-700: #272730;
+  --color-console-600: #34343f;
+  --color-console-500: #474754;
+  --color-console-400: #6a6a7a;
+  --color-console-300: #9595a4;
+  --color-console-200: #c4c4cf;
+  --color-console-100: #e9e9ef;
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+  /* One hue per channel, held at similar lightness so no track visually dominates. */
+  --color-ch-vocals: #ff6f91;
+  --color-ch-drums: #ffa94d;
+  --color-ch-bass: #57a5ff;
+  --color-ch-other: #3ddc97;
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --color-solo: #ffd43b;
+  --color-mute: #ff7a7a;
+  --color-transport: #7c5cff;
+  --color-danger: #ff6b6b;
 
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
-}
-
-#root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
+*,
+*::before,
+*::after {
   box-sizing: border-box;
+}
+
+html {
+  color-scheme: dark;
 }
 
 body {
   margin: 0;
+  min-height: 100svh;
+  background: var(--color-console-1000);
+  color: var(--color-console-200);
+  font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
+/* A faint vertical gradient reads as a rack panel catching light from above. */
+#root {
+  min-height: 100svh;
+  background:
+    radial-gradient(120% 80% at 50% 0%, rgba(124, 92, 255, 0.07), transparent 60%),
+    var(--color-console-1000);
 }
 
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
+/* Channel label / readout chrome: tight uppercase mono, the way hardware is legended. */
+.legend {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* Recessed panel: a hairline highlight on top, shadow inside, as though inset into metal. */
+.panel {
+  background: linear-gradient(
+    180deg,
+    var(--color-console-850) 0%,
+    var(--color-console-900) 100%
+  );
+  border: 1px solid var(--color-console-700);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+/* Horizontal fader. Track is a routed channel; the cap is a raised grip. */
+input[type="range"].fader {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 20px;
+  background: transparent;
+  cursor: grab;
+}
+
+input[type="range"].fader:active {
+  cursor: grabbing;
+}
+
+input[type="range"].fader::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-console-700);
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.6);
+}
+
+input[type="range"].fader::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-console-700);
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.6);
+}
+
+input[type="range"].fader::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 20px;
+  margin-top: -8px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--color-console-300), var(--color-console-500));
+  border: 1px solid var(--color-console-600);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+input[type="range"].fader::-moz-range-thumb {
+  width: 12px;
+  height: 20px;
+  border: 1px solid var(--color-console-600);
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--color-console-300), var(--color-console-500));
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+input[type="range"].fader:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+input[type="range"].fader:focus-visible {
+  outline: 2px solid var(--color-transport);
+  outline-offset: 4px;
+  border-radius: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
-p {
-  margin: 0;
-}
-
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
-}
-
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
 }
