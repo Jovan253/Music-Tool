@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { AuthProvider, useAuth } from './features/auth/AuthContext'
+import { AuthProvider } from './features/auth/AuthContext'
+import { useAuth } from './features/auth/auth-context'
 import { LoginPage } from './features/auth/LoginPage'
 import { StemMixer } from './features/mixer/StemMixer'
 import { UploadZone } from './features/upload/UploadZone'
