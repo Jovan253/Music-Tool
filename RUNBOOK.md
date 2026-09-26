@@ -235,17 +235,19 @@ Order of work:
 2. Move the API to Modal, replace RQ with `.spawn()`, retire Railway.
 3. Move Postgres to Neon.
 4. Move storage to R2 and add a stem retention policy — at ~20–60MB per job, unbounded storage fills any free tier.
-5. Baseline tests + CI.
+5. ~~Baseline tests + CI.~~ **Done** — 17 API tests plus a GitHub Actions workflow running them alongside web lint and build.
 6. UX polish: upload progress, waveform loading states, error surfaces, mobile layout.
 
 ---
 
-## Future: account hygiene
+## Future items
 
-Two open items, deliberately deferred:
+Deliberately deferred:
 
-1. **Settle the app's name.** Currently "Music Tool" in the repo, provisionally "MusicSeparator" elsewhere. Worth deciding before creating more accounts, since the name ends up baked into project slugs, bucket names, and deploy URLs that are annoying to change later.
-2. **One mailbox for all service accounts.** Right now Supabase, Railway, Modal, Neon, R2 and Vercel notifications scatter across a personal inbox with no shared heading. A dedicated address under the app's name keeps billing warnings, pause notices and quota alerts in one filterable place — the Supabase pause that broke this project is exactly the kind of email worth not missing.
+1. **Architecture and sequence diagrams, plus a plain-language explanation of how the app works.** Worth doing *after* the Modal migration lands, not before — the topology is mid-change, so anything drawn now documents a system that is about to stop existing. Wanted: an architecture diagram (who talks to whom across Modal, Neon, R2, Supabase Auth, Vercel), a sequence diagram for the upload → separate → poll → play flow, and a general written explanation suitable for a portfolio reader who has never seen the repo.
+
+2. **Settle the app's name.** Currently "Music Tool" in the repo, provisionally "MusicSeparator" elsewhere. Worth deciding before creating more accounts, since the name ends up baked into project slugs, bucket names, and deploy URLs that are annoying to change later.
+3. **One mailbox for all service accounts.** Right now Supabase, Railway, Modal, Neon, R2 and Vercel notifications scatter across a personal inbox with no shared heading. A dedicated address under the app's name keeps billing warnings, pause notices and quota alerts in one filterable place — the Supabase pause that broke this project is exactly the kind of email worth not missing.
 
    Cheapest version needing zero setup: a Gmail `+` alias (`youraddress+musicseparator@gmail.com`) works immediately on every one of these services and filters cleanly. A separate account is tidier long-term but only worth it if the project outlives the portfolio use.
 

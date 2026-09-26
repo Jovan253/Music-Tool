@@ -1,7 +1,12 @@
 ## 1. Verify the Modal API surface before writing against it
 
-- [ ] 1.1 Confirm against the installed Modal version (1.5.5) how local Python source is added to an image — `add_local_python_source` vs `add_local_dir` — and how `@modal.asgi_app()` is combined with `@app.function()`
-- [ ] 1.2 Confirm the `.spawn()` return type and whether the call id is worth persisting on the job row given status already lives in Postgres
+- [x] 1.1 Confirm against the installed Modal version (1.5.5) how local Python source is added to an image — `add_local_python_source` vs `add_local_dir` — and how `@modal.asgi_app()` is combined with `@app.function()`
+- [x] 1.2 Confirm the `.spawn()` return type and whether the call id is worth persisting on the job row given status already lives in Postgres
+
+Findings are recorded in `design.md` under "Verified API surface". Outcome: use
+`add_local_dir` (not `add_local_python_source`), ignore `.env` and `.venv`,
+install the `local-separation` extra via `pip_install_from_pyproject`, use
+`Secret.from_name(required_keys=...)`, and do not persist the call id.
 
 ## 2. Secrets
 

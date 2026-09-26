@@ -30,6 +30,19 @@ Alembic in an ASGI lifespan would race whenever Modal starts more than one conta
 
 `MODAL_TOKEN_ID` already gates the Modal path. With Modal unset, dispatch runs the existing local separation in-process, so a developer needs neither Modal credentials nor a Redis container — only Postgres via docker compose. Note that a Modal-hosted job cannot reach a localhost Postgres, so local work necessarily uses the local executor; this is a property of the split, not a bug.
 
+## Verified API surface (Modal 1.5.5)
+
+Checked against the installed client rather than assumed, since this was flagged as the likeliest place to lose time. Findings that shaped the design:
+
+- **`add_local_python_source` is the wrong tool here.** It defaults to `ignore=NON_PYTHON_FILES`, so it would silently drop `alembic.ini`, `alembic/script.py.mako`, and anything else non-`.py` that the migration function needs. It also expects importable module names, and `routes/`, `services/`, `workers/` and `audio/` have no `__init__.py`. Use `add_local_dir` over the whole `apps/api` tree instead, which also matches how `main.py` imports (`from routes.upload import ...` assumes `apps/api` is on the path).
+- **`.env` and `.venv` must be explicitly ignored** when adding that directory. `.env` would bake real secrets into an image layer, and `.venv` would bloat it enormously.
+- **`pip_install_from_pyproject(pyproject_toml, optional_dependencies=[...])` exists**, so the GPU image can install the `local-separation` extra rather than duplicating pinned torch/torchaudio/demucs versions the way `modal_separation.py` does today. One source of truth for versions.
+- **`Secret.from_name(..., required_keys=[...])` exists**, which fails at lookup time when a variable is missing instead of at container import. That is a better fit for the "fails loudly" requirement than relying on the `RuntimeError`s in `db.py` and `storage/supabase_storage.py`.
+- **`@app.function(timeout=...)` defaults to 300s.** Separation must set this explicitly; the current `modal_separation.py` already does. `retries` is available on the same decorator, which is what replaces the startup stale-job sweep.
+- `spawn()` returns a `FunctionCall` exposing `object_id`, and `FunctionCall.from_id` can retrieve it later. Persisting that id on the job row is therefore possible but not necessary, since status lives in Postgres — left out to avoid a schema change.
+
+Also confirmed: the `music-tool-separation` app is **already deployed** (2026-05-25) and `Function.from_name` resolves against it, so the GPU half of this change modifies a live app rather than creating one.
+
 ## Risks
 
 - **Cold start latency on the API.** A scale-to-zero container adds a second or two to the first request after idle. Acceptable for a portfolio app; mitigated later with a warm-up cron if it grates.
