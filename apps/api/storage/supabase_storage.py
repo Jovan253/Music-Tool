@@ -9,7 +9,21 @@ if not _url:
 if not _key:
     raise RuntimeError("SUPABASE_SERVICE_ROLE_KEY environment variable is not set")
 
-_client: Client = create_client(_url, _key)
+
+def _normalize_url(url: str) -> str:
+    # The dashboard shows both a project URL and a REST URL. Pasting the REST one
+    # makes the client build paths like /rest/v1/auth/v1/user, which 404s and then
+    # surfaces as a generic 401 with nothing pointing at the real cause.
+    url = url.strip().rstrip("/")
+    for suffix in ("/rest/v1", "/auth/v1", "/storage/v1"):
+        if url.endswith(suffix):
+            url = url[: -len(suffix)]
+    return url
+
+
+SUPABASE_URL = _normalize_url(_url)
+
+_client: Client = create_client(SUPABASE_URL, _key)
 
 
 def upload_file(bucket: str, path: str, data: bytes, content_type: str) -> None:

@@ -16,7 +16,7 @@ Last verified: **2026-09-26** (repo had been dormant since 2026-05-26).
 | API | **Live on Modal**: `https://jovan253--music-tool-api-fastapi-app.modal.run`. `/health` 200 in 6.5s cold, 0.18s warm. |
 | GPU separation | **Live on Modal** as `music-tool-separation` / `separate_job`. |
 | Postgres | **Live on Neon**, migrated to head (`7bc48242348d`). |
-| Supabase | Used for auth and (still) file storage. Was auto-paused after the dormancy; restored. |
+| Supabase | **A fresh project** (`iinvqdjyfmjwfnggdkhi`) — the May one is gone, so there are no users and no history. `uploads` and `stems` buckets created 2026-09-26, both private. Email confirmation is on. |
 | Modal secret | `music-tool` exists with all six required keys. |
 | Railway | Still running, **not yet retired** — it stays until one real upload succeeds end-to-end on Modal. |
 | Cloudflare R2 | Credentials in `.env`, but **no code reads them yet** — the storage migration is a later change. |
@@ -228,6 +228,12 @@ If it respawns or the PID won't resolve: `Get-Process python | Stop-Process -For
 **Jobs stuck in `processing`.** Check the `music-tool-separation` logs on modal.com. A job that dies without writing a terminal status means the container was killed rather than raising — `run_separation` records `failed` on any exception it sees. There is no longer a startup sweep to rescue these; Modal's `retries=2` is the recovery mechanism.
 
 **Jobs fail on a timeout.** `SEPARATION_TIMEOUT_S` in `apps/api/modal_separation.py` is 900s, which is generous because a cold container pulls Demucs weights before starting work. Actual separation on a T4 is ~25s.
+
+**Sign-in fails, or every API call returns 401 with valid credentials.** Check that `SUPABASE_URL` / `VITE_SUPABASE_URL` is the **project URL** (`https://<ref>.supabase.co`) and not the REST URL. The dashboard shows both. Pasting the REST one makes the client build `/rest/v1/auth/v1/token`, which 404s — and `auth.py` turns that into a generic `401 Invalid or expired token`, so it reads as bad credentials. Both clients now strip `/rest/v1`, `/auth/v1` and `/storage/v1` suffixes defensively, but a wrong host will still fail.
+
+**Uploads fail on a fresh Supabase project.** The `uploads` and `stems` buckets do not exist until someone creates them, and nothing in the app creates them on demand. Both must be **private** — the API hands out short-lived signed URLs rather than public links. Verify under Storage in the dashboard.
+
+**Signed up but can't sign in.** Email confirmation is enabled (`mailer_autoconfirm: false`), so the account is unusable until the link is clicked. Supabase's built-in SMTP is rate-limited to a couple of messages an hour and frequently lands in spam. A user can be confirmed directly through the admin API if the mail never arrives.
 
 **CORS errors in the browser.** `CORS_ORIGINS` doesn't include the origin you're calling from. In production it comes from the Modal secret, not `.env` — updating it means recreating the secret and redeploying.
 
