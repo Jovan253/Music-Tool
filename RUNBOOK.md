@@ -18,12 +18,12 @@ Last verified: **2026-09-26** (repo had been dormant since 2026-05-26).
 | Postgres | **Live on Neon**, migrated to head (`7bc48242348d`). |
 | Supabase | **A fresh project** (`iinvqdjyfmjwfnggdkhi`) — the May one is gone, so there are no users and no history. `uploads` and `stems` buckets created 2026-09-26, both private. Email confirmation is on. |
 | Modal secret | `music-tool` exists with all six required keys. |
-| Railway | Still running, **not yet retired** — it stays until one real upload succeeds end-to-end on Modal. |
+| Railway | **Retired.** Config files deleted from the repo. The project itself must still be deleted in the Railway dashboard to stop any accrual. |
 | Cloudflare R2 | Credentials in `.env`, but **no code reads them yet** — the storage migration is a later change. |
 | Vercel | Not set up yet. |
 | Tests / CI | 18 API tests; GitHub Actions runs them plus web lint and build. Green. |
 
-**Not yet verified end-to-end:** a real authenticated upload producing four playable stems. Everything up to that point is confirmed working.
+**Verified end-to-end on 2026-09-26:** an authenticated upload through the deployed API dispatched to Modal via `.spawn()`, separated a track on the T4 in ~7s, and returned four distinct playable stems through signed URLs.
 
 ---
 
@@ -111,10 +111,12 @@ What each service does, where to go, and what to check when something is broken.
 - **Must set:** `VITE_API_BASE_URL`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`.
 - **Gotcha:** after deploying, add the Vercel URL to the API's `CORS_ORIGINS` or every request fails in the browser with an opaque CORS error.
 
-### Railway — being retired
+### Railway — retired 2026-09-26
 - **Dashboard:** https://railway.app/dashboard
 - **Why retired:** the Free plan is $1/month of credit, which won't run four always-on services; Hobby is $5/month and web + worker + Postgres + Redis running 24/7 will likely exceed its included credit. Modal's scale-to-zero does the same job for $0.
-- Leave the project in place until the Modal API deploy is verified, then delete it to stop any accrual.
+- `railway.toml`, `Procfile` and `start.sh` are deleted. `start.sh`'s `alembic upgrade head` step lives on as `modal_app.py::migrate`.
+- **Remaining manual step:** delete the project in the Railway dashboard. Until then it may still accrue usage.
+- Recoverable if ever needed: the deleted files are in git history at `5319b67~1`.
 
 ---
 
@@ -260,7 +262,7 @@ Decision made 2026-09-26: migrate off Railway to an all-free, scale-to-zero stac
 | Object storage | Supabase Storage | Cloudflare R2 | Not started; credentials in place |
 | Auth | Supabase Auth | unchanged | — |
 | Frontend | — | Vercel | Not started |
-| Railway | 4 always-on services | deleted | **Pending** the end-to-end upload test |
+| Railway | 4 always-on services | deleted | **Done** in the repo; delete the project in the dashboard |
 
 Order of work:
 1. ~~Fix the `job_timeout` / CPU-fallback mismatch so failures are loud instead of confusing.~~ **Done.**
