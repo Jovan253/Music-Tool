@@ -4,6 +4,89 @@ AI-powered music backing track generator. Upload a song, separate it into stems 
 
 > Returning to this project after a break? Start with [RUNBOOK.md](RUNBOOK.md) — service dashboards, credential provenance, cold-start steps, and current deployment status.
 
+## How it works
+
+You upload a song. A GPU pulls it apart into four independent tracks — vocals, drums, bass, and everything else — and hands them back as a mixing desk in the browser. Mute the vocals to sing over the band; solo the bass to learn a line; drop the drums and play along yourself. Export whatever mix you land on.
+
+The separation is done by [Demucs](https://github.com/adefossez/demucs), a machine-learning model that reconstructs each instrument as its own audio stream rather than filtering frequency bands. It needs a GPU to be quick: the same job takes ~25 seconds on a T4 and ~12 minutes on a laptop CPU.
+
+Everything runs on free tiers and scales to zero, so an idle month costs nothing.
+
+### Architecture
+
+```mermaid
+graph LR
+  subgraph client["Browser"]
+    W["React + Vite<br/>on Vercel"]
+  end
+
+  subgraph modal["Modal — scale to zero"]
+    A["FastAPI<br/>ASGI app"]
+    G["separate_job<br/>T4 GPU"]
+    C["retention_sweep<br/>daily cron"]
+  end
+
+  subgraph data["Managed data"]
+    D[("Neon<br/>Postgres")]
+    S["Supabase Storage<br/>uploads + stems"]
+    AU["Supabase Auth"]
+  end
+
+  W -->|"sign in"| AU
+  W -->|"JWT-bearing requests"| A
+  W -.->|"streams stems via signed URL"| S
+  A -->|"job records"| D
+  A -->|"original upload"| S
+  A -->|"spawn(job_id)"| G
+  G -->|"reads original,<br/>writes 4 MP3 stems"| S
+  G -->|"status, timing"| D
+  C -->|"deletes expired audio"| S
+  C -->|"marks expired"| D
+```
+
+The API never does heavy work itself. It validates, stores, and spawns — then the GPU function owns the whole job, including writing the final status. That is why the client can just poll the database and never needs to know which executor ran it.
+
+### A separation, end to end
+
+```mermaid
+sequenceDiagram
+  actor U as You
+  participant W as Web
+  participant A as API
+  participant S as Storage
+  participant G as GPU
+  participant D as Database
+
+  U->>W: choose an audio file
+  W->>A: POST /upload
+  A->>S: store the original
+  A->>D: create job (pending)
+  A->>G: spawn separate_job(id)
+  A-->>W: 201 { job_id }
+
+  par GPU works
+    G->>D: status = processing
+    G->>S: fetch the original
+    Note over G: htdemucs on a T4<br/>~25s for a 3 min track
+    G->>S: store 4 MP3 stems
+    G->>D: status = done + stem paths
+  and Client waits
+    loop every 3s
+      W->>A: GET /jobs/{id}
+      A->>D: read status
+      A-->>W: pending → processing → done
+    end
+  end
+
+  W->>A: GET /jobs/{id}/stems/vocals
+  A->>S: create a 1-hour signed URL
+  A-->>W: signed URL
+  W->>S: stream the audio
+  Note over W: four waveforms,<br/>mute / solo / volume per track
+```
+
+Two details that shape the design. Separation is dispatched rather than awaited, because a request cannot stay open for the length of a GPU job — so job state lives in Postgres and the client polls it. And stems are served as short-lived signed URLs rather than public files, so the storage buckets stay private.
+
 ## Prerequisites
 
 - Node.js 20.x (do not use 20.19+ — Vite 5 requires exactly 20.18 or lower)

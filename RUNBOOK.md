@@ -316,7 +316,7 @@ Order of work:
 
 Deliberately deferred:
 
-1. **Architecture and sequence diagrams, plus a plain-language explanation of how the app works.** Worth doing *after* the Modal migration lands, not before — the topology is mid-change, so anything drawn now documents a system that is about to stop existing. Wanted: an architecture diagram (who talks to whom across Modal, Neon, R2, Supabase Auth, Vercel), a sequence diagram for the upload → separate → poll → play flow, and a general written explanation suitable for a portfolio reader who has never seen the repo.
+1. ~~**Architecture and sequence diagrams, plus a plain-language explanation.**~~ **Done** — the README now opens with a "How it works" section, a Mermaid architecture diagram and a Mermaid sequence diagram for the upload → separate → poll → play flow. Mermaid rather than images so GitHub renders them inline and they stay diffable. Redraw them if the R2 migration lands, since storage appears in both.
 
 2. **Settle the app's name.** Currently "Music Tool" in the repo, provisionally "MusicSeparator" elsewhere. Worth deciding before creating more accounts, since the name ends up baked into project slugs, bucket names, and deploy URLs that are annoying to change later.
 3. **A public example page — the highest-leverage portfolio item here.** Nobody evaluating this will sign up: the sign-in wall, the email confirmation step and the free-tier limits all stand between a visitor and seeing anything work. A public page carrying a short screen recording of the real flow, plus one pre-separated track whose stems can be played and mixed without logging in, is what makes the link worth sending.
