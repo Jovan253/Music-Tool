@@ -14,7 +14,7 @@ export interface UploadResponse {
 
 export interface JobResponse {
   job_id: string
-  status: 'pending' | 'processing' | 'done' | 'failed'
+  status: 'pending' | 'processing' | 'done' | 'failed' | 'expired'
   filename: string
   created_at: string
   stems: Record<string, string> | null

@@ -20,7 +20,8 @@ Last verified: **2026-09-26** (repo had been dormant since 2026-05-26).
 | Modal secret | `music-tool` exists with all six required keys. |
 | Railway | **Retired.** Config files deleted from the repo. The project itself must still be deleted in the Railway dashboard to stop any accrual. |
 | Cloudflare R2 | Credentials in `.env`, but **no code reads them yet** — the storage migration is a later change. |
-| Vercel | Not set up yet. |
+| Vercel | **Live** at https://music-tool-web.vercel.app — its origin is in `CORS_ORIGINS`, preflight verified. |
+| Retention | **Live.** Daily Modal cron expires jobs older than `STEM_RETENTION_DAYS` (default 14). Dry-run verified against real data before enabling. |
 | Tests / CI | 18 API tests; GitHub Actions runs them plus web lint and build. Green. |
 
 **Verified end-to-end on 2026-09-26:** an authenticated upload through the deployed API dispatched to Modal via `.spawn()`, separated a track on the T4 in ~7s, and returned four distinct playable stems through signed URLs.
@@ -63,7 +64,18 @@ What each service does, where to go, and what to check when something is broken.
   - Storage → confirm `uploads` and `stems` buckets still exist.
   - Settings → API → confirm the service-role key hasn't been rotated out from under your `.env`.
   - Auth → Users → confirm your login account still exists.
-- **Keeping it alive:** any real DB query resets the 7-day pause clock. A weekly Modal cron that pings the database is the cheap insurance (free, and Modal cron is included).
+- **Keeping it alive:** the daily `retention_sweep()` Modal cron queries the database and touches storage on every run, which keeps the project active. **If that sweep breaks, the pause becomes a second, quieter failure** — storage also stops being reclaimed. Check its runs in the `music-tool-api` logs.
+
+### Retention
+- **What it does:** once a job is older than `STEM_RETENTION_DAYS` (default 14), a daily Modal cron deletes its original upload and its four stems, then marks the job `expired` with `stems` cleared. The record survives; the audio does not.
+- **Why it exists:** each job is ~20–60 MB against a 1 GB free tier, so storage fills at roughly 20–50 tracks. Nothing else ever deleted a file.
+- **Exempting a job:** add its id to `RETENTION_EXEMPT_JOB_IDS` (comma-separated). The public demo job must go here or the demo loses its audio after the window and the portfolio link breaks silently.
+- **Before changing the window or trusting a sweep, dry-run it.** There are no storage backups on the free plan:
+  ```python
+  from workers.retention import expire_old_jobs
+  expire_old_jobs(days=14, exempt=set(), dry_run=True)   # reports, deletes nothing
+  ```
+- **Recovery:** there is none. An expired job cannot be re-separated — the original upload is deleted too, deliberately, since it is the larger artefact. Re-upload the track.
 
 ### Modal — hosts both the API and GPU separation
 - **Dashboard:** https://modal.com/apps
@@ -72,7 +84,7 @@ What each service does, where to go, and what to check when something is broken.
 
   | App | Entrypoint | What it is |
   |---|---|---|
-  | `music-tool-api` | `apps/api/modal_app.py` | The FastAPI app as an ASGI function, plus `migrate()` |
+  | `music-tool-api` | `apps/api/modal_app.py` | The FastAPI app as an ASGI function, plus `migrate()` and the daily `retention_sweep()` |
   | `music-tool-separation` | `apps/api/modal_separation.py` | `separate_job(job_id)` on a T4, owns the whole job |
 
 - **Free plan:** Starter is $0 with **$30/month of compute credits** (~50 T4-hours), 10 concurrent GPUs. At ~25s/song that is thousands of songs a month.

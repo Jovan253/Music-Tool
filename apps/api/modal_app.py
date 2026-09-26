@@ -63,6 +63,23 @@ def fastapi_app():
     return web_app
 
 
+@app.function(
+    image=image,
+    secrets=[secret],
+    schedule=modal.Period(days=1),
+    timeout=900,
+)
+def retention_sweep() -> str:
+    _add_api_to_path()
+    from workers.retention import expire_old_jobs
+
+    # Also the Supabase keep-alive: the free tier pauses a project after 7 days of
+    # inactivity and only a dashboard click revives it. This sweep queries the
+    # database and touches storage daily, so it keeps the project awake. If it ever
+    # stops running, that pause becomes a second, quieter failure.
+    return expire_old_jobs().summary()
+
+
 @app.function(image=image, secrets=[secret], timeout=600)
 def migrate() -> None:
     _add_api_to_path()

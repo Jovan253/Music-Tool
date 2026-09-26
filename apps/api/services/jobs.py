@@ -6,7 +6,7 @@ import uuid
 from db import SessionLocal
 from models.job import JobModel
 
-JobStatus = Literal["pending", "processing", "done", "failed"]
+JobStatus = Literal["pending", "processing", "done", "failed", "expired"]
 
 
 @dataclass
@@ -57,6 +57,37 @@ def get_job(job_id: str, user_id: str | None = None) -> JobRecord | None:
             return None
         if user_id is not None and row.user_id != user_id:
             return None
+        return _to_record(row)
+
+
+def get_jobs_with_stems() -> list[JobRecord]:
+    # Both filters are applied in Python rather than SQL, for two separate reasons.
+    #
+    # Stems: a SQLAlchemy JSON column stores Python None as JSON `null`, not SQL
+    # NULL, so `JobModel.stems.isnot(None)` matches every row — including jobs that
+    # never had stems and jobs already expired. Using it would re-expire expired
+    # jobs on every sweep.
+    #
+    # Age (left to the caller): `created_at` is timezone-aware on Postgres but comes
+    # back naive from SQLite, so a SQL datetime comparison behaves differently per
+    # dialect and would be untestable against the SQLite suite.
+    #
+    # Row count is bounded by what the storage tier can hold, so this costs nothing.
+    with SessionLocal() as db:
+        records = [_to_record(row) for row in db.query(JobModel).all()]
+    return [record for record in records if record.stems]
+
+
+def expire_job(job_id: str) -> JobRecord:
+    with SessionLocal() as db:
+        row = db.get(JobModel, job_id)
+        if row is None:
+            raise ValueError(f"Job {job_id!r} not found")
+        row.status = "expired"
+        row.stems = None
+        row.error = None
+        db.commit()
+        db.refresh(row)
         return _to_record(row)
 
 

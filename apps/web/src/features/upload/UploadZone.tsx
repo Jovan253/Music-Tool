@@ -24,6 +24,14 @@ function validateFile(file: File): string | null {
   return null
 }
 
+function terminalMessage(status: string): string {
+  if (status === 'expired') {
+    return 'The audio for this track was removed to stay within storage limits. Upload it again to separate it.'
+  }
+  if (status === 'failed') return 'Separation failed'
+  return `Separation stopped with an unexpected status: ${status}`
+}
+
 export function UploadZone({ onReady }: Props) {
   const [state, setState] = useState<State>({ kind: 'idle' })
   const [dragging, setDragging] = useState(false)
@@ -38,8 +46,10 @@ export function UploadZone({ onReady }: Props) {
         const job = await getJobStatus(pollingJobId)
         if (job.status === 'done') {
           onReady(pollingJobId)
-        } else if (job.status === 'failed') {
-          setState({ kind: 'error', message: job.error ?? 'Separation failed' })
+        } else if (job.status !== 'pending' && job.status !== 'processing') {
+          // Anything not still in progress is terminal. Listing the terminal
+          // statuses instead would poll forever on any status not in the list.
+          setState({ kind: 'error', message: job.error ?? terminalMessage(job.status) })
         }
       } catch {
         // network error — keep polling

@@ -38,6 +38,19 @@ def download_file(bucket: str, path: str) -> bytes:
     return _client.storage.from_(bucket).download(path)
 
 
+def delete_files(bucket: str, paths: list[str]) -> None:
+    # Deleting an absent path is not an error here: the retention sweep must be
+    # safe to re-run after a partial failure.
+    if not paths:
+        return
+    _client.storage.from_(bucket).remove(paths)
+
+
+def list_files(bucket: str, prefix: str) -> list[str]:
+    entries = _client.storage.from_(bucket).list(prefix)
+    return [f"{prefix.rstrip('/')}/{e['name']}" for e in entries if e.get("name")]
+
+
 def get_client() -> Client:
     return _client
 
