@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  api:
+    name: API tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: apps/api/pyproject.toml
+
+      # Deliberately not installing the local-separation extra: torch and demucs
+      # are ~2.5GB and separation runs on Modal, not in CI.
+      - run: pip install -e ".[dev]"
+
+      - run: pytest -q
+
+  web:
+    name: Web lint and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Pinned below 20.19 to match the Vite 5 constraint in CLAUDE.md.
+          node-version: "20.18"
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run lint --workspace=apps/web
+
+      - run: npm run build --workspace=apps/web

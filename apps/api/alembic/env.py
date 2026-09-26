@@ -11,7 +11,7 @@ _api_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(_api_dir))
 load_dotenv(_api_dir / ".env")
 
-from db import Base
+from db import Base, DATABASE_URL
 import models.job  # noqa: F401 — ensures JobModel is registered on Base.metadata
 
 config = context.config
@@ -19,9 +19,9 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-db_url = os.environ.get("DATABASE_URL")
-if db_url:
-    config.set_main_option("sqlalchemy.url", db_url)
+# set_main_option runs the value through ConfigParser interpolation, so a literal
+# % in a provider-generated password has to be escaped or it raises.
+config.set_main_option("sqlalchemy.url", DATABASE_URL.replace("%", "%%"))
 
 target_metadata = Base.metadata
 

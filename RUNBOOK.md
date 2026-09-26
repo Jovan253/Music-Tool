@@ -146,8 +146,21 @@ Copy-Item .env.example .env
 # edit .env — at minimum SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY
 python -m venv .venv
 .venv\Scripts\activate
-pip install -e .
+pip install -e ".[dev]"
 alembic upgrade head
+```
+
+Dependency extras — the core install is deliberately light:
+
+| Install | Gets you |
+|---|---|
+| `pip install -e .` | API, queue, storage, Modal client. No torch. |
+| `pip install -e ".[dev]"` | The above plus pytest. Use this for normal development. |
+| `pip install -e ".[local-separation]"` | Adds torch + demucs (~2.5GB) — only needed to run separation on your own CPU instead of Modal. |
+
+**ffmpeg is a separate system install** and `pydub` needs it for the export mixdown and MP3 transcode. Without it, export fails at runtime with a confusing pydub warning. Install once:
+```powershell
+winget install Gyan.FFmpeg
 ```
 
 **4. Frontend env + dependencies.**
@@ -226,6 +239,15 @@ Order of work:
 6. UX polish: upload progress, waveform loading states, error surfaces, mobile layout.
 
 ---
+
+## Future: account hygiene
+
+Two open items, deliberately deferred:
+
+1. **Settle the app's name.** Currently "Music Tool" in the repo, provisionally "MusicSeparator" elsewhere. Worth deciding before creating more accounts, since the name ends up baked into project slugs, bucket names, and deploy URLs that are annoying to change later.
+2. **One mailbox for all service accounts.** Right now Supabase, Railway, Modal, Neon, R2 and Vercel notifications scatter across a personal inbox with no shared heading. A dedicated address under the app's name keeps billing warnings, pause notices and quota alerts in one filterable place — the Supabase pause that broke this project is exactly the kind of email worth not missing.
+
+   Cheapest version needing zero setup: a Gmail `+` alias (`youraddress+musicseparator@gmail.com`) works immediately on every one of these services and filters cleanly. A separate account is tidier long-term but only worth it if the project outlives the portfolio use.
 
 ## Gotchas worth remembering
 
