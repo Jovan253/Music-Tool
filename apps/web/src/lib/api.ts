@@ -85,6 +85,29 @@ export async function fetchStemUrl(jobId: string, stemName: string): Promise<str
   return data.url
 }
 
+export interface DemoJob {
+  title: string
+  processing_ms: number | null
+  stems: string[]
+}
+
+// Deliberately does not go through `request`: the demo routes are public, and a
+// stale token from a previous session should never influence what they return.
+async function publicRequest<T>(path: string): Promise<T> {
+  const res = await fetch(`${BASE_URL}${path}`)
+  if (!res.ok) throw new Error(`API error ${res.status}: ${res.statusText}`)
+  return res.json() as Promise<T>
+}
+
+export function fetchDemoJob(): Promise<DemoJob> {
+  return publicRequest<DemoJob>('/demo/job')
+}
+
+export async function fetchDemoStemUrl(stemName: string): Promise<string> {
+  const data = await publicRequest<{ url: string }>(`/demo/stems/${stemName}`)
+  return data.url
+}
+
 export async function exportMix(
   jobId: string,
   stems: Record<string, number>,

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { AuthProvider } from './features/auth/AuthContext'
 import { useAuth } from './features/auth/auth-context'
+import { DemoPage } from './features/demo/DemoPage'
 import { LoginPage } from './features/auth/LoginPage'
 import { StemMixer } from './features/mixer/StemMixer'
 import { UploadZone } from './features/upload/UploadZone'
@@ -11,8 +12,8 @@ function AppContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-950">
-        <div className="text-gray-400">Loading…</div>
+      <div className="flex min-h-screen items-center justify-center">
+        <p className="legend text-console-500">loading</p>
       </div>
     )
   }
@@ -25,9 +26,9 @@ function AppContent() {
     <div className="relative">
       <button
         onClick={signOut}
-        className="absolute top-4 right-4 z-10 text-xs text-gray-500 hover:text-gray-300 transition-colors"
+        className="legend absolute right-4 top-4 z-10 text-console-600 transition-colors hover:text-console-300"
       >
-        Sign out
+        sign out
       </button>
       {jobId
         ? <StemMixer jobId={jobId} onReset={() => setJobId(null)} />
@@ -38,6 +39,12 @@ function AppContent() {
 }
 
 function App() {
+  // Two routes do not justify a router dependency. `vercel.json` rewrites every
+  // path to index.html, so /demo is served by the SPA and read here.
+  if (window.location.pathname.replace(/\/+$/, '') === '/demo') {
+    return <DemoPage />
+  }
+
   return (
     <AuthProvider>
       <AppContent />

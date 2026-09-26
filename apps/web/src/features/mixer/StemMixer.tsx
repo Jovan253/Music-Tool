@@ -9,10 +9,23 @@ type StemName = typeof STEMS[number]
 
 const SKIP_SECONDS = 5
 
+// The mixer is used by both the signed-in app and the public demo page, which
+// read from different endpoints. Injecting the source keeps one console rather
+// than a second, drifting copy.
+export interface MixerSource {
+  fetchStemUrl: (stem: string) => Promise<string>
+  fetchMeta: () => Promise<{ processing_ms: number | null }>
+  canExport: boolean
+}
+
 interface Props {
   jobId: string
+  source?: MixerSource
   onReset?: () => void
   title?: string
+  // Embedded drops the full-page wrapper so the console can sit inside another
+  // page (the demo) without doubling its padding and min-height.
+  embedded?: boolean
 }
 
 function formatTime(seconds: number): string {
@@ -22,8 +35,15 @@ function formatTime(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`
 }
 
-export function StemMixer({ jobId, onReset, title = 'Stem mixer' }: Props) {
+export function StemMixer({ jobId, source, onReset, title = 'Stem mixer', embedded = false }: Props) {
   const wsRefs = useRef<(WaveSurfer | null)[]>(STEMS.map(() => null))
+  const sourceRef = useRef<MixerSource>(
+    source ?? {
+      fetchStemUrl: (stem) => fetchStemUrl(jobId, stem),
+      fetchMeta: () => getJobStatus(jobId),
+      canExport: true,
+    },
+  )
 
   const [stemUrls, setStemUrls] = useState<Record<StemName, string> | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -44,9 +64,10 @@ export function StemMixer({ jobId, onReset, title = 'Stem mixer' }: Props) {
   useEffect(() => {
     let cancelled = false
     setLoadError(null)
+    const src = sourceRef.current
     Promise.all([
-      Promise.all(STEMS.map(stem => fetchStemUrl(jobId, stem).then(url => [stem, url] as const))),
-      getJobStatus(jobId),
+      Promise.all(STEMS.map(stem => src.fetchStemUrl(stem).then(url => [stem, url] as const))),
+      src.fetchMeta(),
     ]).then(([entries, job]) => {
       if (cancelled) return
       setStemUrls(Object.fromEntries(entries) as Record<StemName, string>)
@@ -111,8 +132,8 @@ export function StemMixer({ jobId, onReset, title = 'Stem mixer' }: Props) {
   const anySoloed = soloedStem !== null
 
   return (
-    <div className="min-h-screen px-4 py-6 sm:px-6 sm:py-10">
-      <div className="mx-auto w-full max-w-4xl">
+    <div className={embedded ? '' : 'min-h-screen px-4 py-6 sm:px-6 sm:py-10'}>
+      <div className={embedded ? 'w-full' : 'mx-auto w-full max-w-4xl'}>
         <header className="mb-5 flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="font-mono text-lg font-semibold tracking-tight text-console-100 sm:text-xl">
@@ -186,10 +207,12 @@ export function StemMixer({ jobId, onReset, title = 'Stem mixer' }: Props) {
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
-            <ExportButton jobId={jobId} volumes={volumes} muted={muted} format="mp3" disabled={!allReady || exporting} onLoadingChange={setExporting} />
-            <ExportButton jobId={jobId} volumes={volumes} muted={muted} format="wav" disabled={!allReady || exporting} onLoadingChange={setExporting} />
-          </div>
+          {sourceRef.current.canExport && (
+            <div className="flex items-center gap-2">
+              <ExportButton jobId={jobId} volumes={volumes} muted={muted} format="mp3" disabled={!allReady || exporting} onLoadingChange={setExporting} />
+              <ExportButton jobId={jobId} volumes={volumes} muted={muted} format="wav" disabled={!allReady || exporting} onLoadingChange={setExporting} />
+            </div>
+          )}
         </div>
 
         <p className="legend mt-4 text-center text-console-600">
