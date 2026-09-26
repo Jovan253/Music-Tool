@@ -1,51 +1,54 @@
 # Spec: stem-separation
 
-## Requirement: Separation worker runs Demucs on a job
-The system SHALL provide a `run_separation(job_id)` function in `apps/api/workers/separation.py` that retrieves the job record, updates its status to `processing`, invokes the `htdemucs` model via the Demucs Python API using the device from `DEMUCS_DEVICE` (or auto-detected default), records wall-clock separation duration as `processing_ms`, transcodes the 4 WAV output stems to MP3 at 256 kbps, uploads the MP3 files to Supabase, updates the job record with stem paths and status `done`, and handles any exception by setting status to `failed` with an error message.
+## Requirement: Separation runs on one of two executors
+The system SHALL perform stem separation for a job by one of two executors, selected at dispatch time (see `job-queue`).
+
+When Modal is available, a Modal GPU function SHALL own the whole job: retrieve the job record, set status `processing`, download the uploaded audio from storage, run `htdemucs`, transcode each stem to MP3 at 256 kbps, upload the stems, and update the job record with stem paths, `processing_ms`, and status `done`.
+
+When Modal is unavailable, `run_separation(job_id)` in `apps/api/workers/separation.py` SHALL perform the same sequence locally and in-process. `run_separation` SHALL contain no Modal branch of its own: the same function executes inside the Modal container, so an internal branch would cause Modal to dispatch to itself.
+
+On any exception the job SHALL be left with status `failed` and a descriptive `error`. The exception SHALL then be re-raised so the executor's retry accounting sees the failure; swallowing it would report success.
 
 ### Scenario: Successful separation stores MP3 stems
-- **WHEN** `run_separation(job_id)` is called with a valid job containing an uploaded audio file
-- **THEN** the job status transitions to `processing` then `done`, the job record contains `stems` with Supabase paths to `vocals.mp3`, `drums.mp3`, `bass.mp3`, and `other.mp3`, and `processing_ms` is set to the wall-clock milliseconds of the Demucs call
+- **WHEN** separation runs for a valid job
+- **THEN** the job status transitions to `processing` then `done`, the record contains `stems` paths for `vocals.mp3`, `drums.mp3`, `bass.mp3` and `other.mp3`, and `processing_ms` reflects the separation duration
 
-### Scenario: Separation failure
-- **WHEN** `run_separation(job_id)` encounters an error during Demucs processing or transcoding
-- **THEN** the job status is set to `failed` and `job.error` contains a description of the failure
+### Scenario: Both executors produce the same record shape
+- **WHEN** the same job is separated locally rather than on Modal
+- **THEN** the resulting record has the same `stems` keys and a populated `processing_ms`
+
+### Scenario: Separation failure is recorded and re-raised
+- **WHEN** separation or transcoding fails
+- **THEN** the job status is `failed`, `job.error` describes the failure, and the exception propagates so the retry policy applies
 
 ### Scenario: Unknown job ID
-- **WHEN** `run_separation(job_id)` is called with a job ID that does not exist
-- **THEN** the function raises a `ValueError` and does not crash the server
+- **WHEN** either executor is invoked with a job ID that does not exist
+- **THEN** it raises a `ValueError` without leaving a partial record behind
 
-## Requirement: Stems are transcoded to MP3 after separation
-After Demucs writes WAV files, the system SHALL transcode each stem to MP3 at 256 kbps using pydub before uploading to Supabase. The original WAV files SHALL be deleted from local disk after transcoding.
+## Requirement: Stems are transcoded to MP3 before upload
+After Demucs writes WAV files, the system SHALL transcode each stem to MP3 at 256 kbps using pydub before uploading. MP3 keeps waveform loading fast in the mixer and keeps per-job storage to roughly 20–60 MB.
 
-### Scenario: MP3 files uploaded to Supabase
+### Scenario: MP3 files uploaded to storage
 - **WHEN** separation completes successfully
-- **THEN** four MP3 files exist in Supabase Storage under the job's stems prefix, and no WAV files remain on local disk for that job
+- **THEN** four MP3 files exist under the job's stems prefix
 
 ### Scenario: Export reads MP3 stems
-- **WHEN** the export route downloads stems from Supabase and passes them to mixer.py
-- **THEN** mixer.py reads them as MP3 format and produces correct mixed audio output
+- **WHEN** the export route downloads stems and passes them to `mixer.py`
+- **THEN** they are read as MP3 and produce correct mixed audio output
 
-## Requirement: Stems are stored in a per-job directory
-The system SHALL write output stem files to `uploads/<job_id>/stems/` using the filenames `vocals.wav`, `drums.wav`, `bass.wav`, and `other.wav`. The directory SHALL be created automatically.
+## Requirement: Intermediate files are ephemeral
+The system SHALL write Demucs output to a temporary directory and SHALL delete it once the stems are uploaded, whether or not the job succeeded. No stem or upload artefact SHALL persist on the executor's local disk.
 
-### Scenario: Stem files exist after successful separation
-- **WHEN** separation completes successfully for a given `job_id`
-- **THEN** four files exist at `uploads/<job_id>/stems/vocals.wav`, `drums.wav`, `bass.wav`, and `other.wav`
+### Scenario: Temporary directory is removed after success
+- **WHEN** separation completes and stems are uploaded
+- **THEN** the temporary working directory no longer exists
 
-## Requirement: Upload endpoint triggers separation asynchronously
-The `POST /upload` endpoint SHALL start separation in a background thread immediately after storing the uploaded file, and SHALL return `{"job_id": "...", "status": "processing", "filename": "..."}` without waiting for separation to complete.
-
-### Scenario: Upload response returns before separation finishes
-- **WHEN** a valid audio file is uploaded
-- **THEN** the server responds `201 Created` with `status: "processing"` within a few seconds, before Demucs has completed
-
-### Scenario: Job eventually reaches done status
-- **WHEN** a valid audio file is uploaded and sufficient time passes for processing
-- **THEN** `GET /jobs/{job_id}` returns `status: "done"` with a `stems` dict containing paths to 4 wav files
+### Scenario: Temporary directory is removed after failure
+- **WHEN** separation raises partway through
+- **THEN** the temporary working directory is still removed
 
 ## Requirement: Job status endpoint exposes stems and errors
-The `GET /jobs/{job_id}` endpoint SHALL include `stems` (dict of stem name → file path) when status is `done`, and `error` (string) when status is `failed`.
+The `GET /jobs/{job_id}` endpoint SHALL include `stems` (dict of stem name → storage path) when status is `done`, and `error` (string) when status is `failed`. A job that reaches a non-failed status SHALL NOT carry an error from an earlier attempt.
 
 ### Scenario: Completed job includes stems
 - **WHEN** `GET /jobs/{job_id}` is called after successful separation
@@ -54,3 +57,7 @@ The `GET /jobs/{job_id}` endpoint SHALL include `stems` (dict of stem name → f
 ### Scenario: Failed job includes error message
 - **WHEN** `GET /jobs/{job_id}` is called after a failed separation
 - **THEN** the response includes `"status": "failed"` and a non-empty `error` string
+
+### Scenario: Retry clears a previous error
+- **WHEN** a job that previously failed is retried and succeeds
+- **THEN** the response includes `"status": "done"` and `error` is null
