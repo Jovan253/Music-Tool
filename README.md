@@ -2,6 +2,8 @@
 
 AI-powered music backing track generator. Upload a song, separate it into stems (vocals, drums, bass, other), and create custom mixes for practice.
 
+> Returning to this project after a break? Start with [RUNBOOK.md](RUNBOOK.md) — service dashboards, credential provenance, cold-start steps, and current deployment status.
+
 ## Prerequisites
 
 - Node.js 20.x (do not use 20.19+ — Vite 5 requires exactly 20.18 or lower)
