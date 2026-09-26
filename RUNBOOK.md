@@ -107,9 +107,34 @@ What each service does, where to go, and what to check when something is broken.
 
 ### Vercel — frontend
 - **Dashboard:** https://vercel.com/dashboard
-- **Will do:** host `apps/web`. Root directory `apps/web`, build `npm run build`, output `dist`.
-- **Must set:** `VITE_API_BASE_URL`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`.
-- **Gotcha:** after deploying, add the Vercel URL to the API's `CORS_ORIGINS` or every request fails in the browser with an opaque CORS error.
+- **Hosts** `apps/web`. Build settings are pinned in `apps/web/vercel.json` (framework, build command, output dir, SPA rewrite), so the dashboard only needs the root directory and env vars.
+
+**Setup, in order:**
+
+1. New Project → import `Jovan253/Music-Tool`.
+2. Set **Root Directory** to `apps/web`. This is the one setting that cannot come from `vercel.json`, and getting it wrong is the usual cause of a failed first build in a monorepo.
+3. Leave framework/build/output alone — `vercel.json` supplies them.
+4. Add three **Environment Variables**, for Production *and* Preview:
+
+   | Variable | Value |
+   |---|---|
+   | `VITE_API_BASE_URL` | `https://jovan253--music-tool-api-fastapi-app.modal.run` |
+   | `VITE_SUPABASE_URL` | `https://iinvqdjyfmjwfnggdkhi.supabase.co` — the project URL, **not** the REST URL |
+   | `VITE_SUPABASE_ANON_KEY` | the anon key from Supabase → Settings → API |
+
+5. Deploy, then note the assigned URL.
+6. **Add that URL to `CORS_ORIGINS`** or every request fails in the browser with an opaque CORS error. In production `CORS_ORIGINS` comes from the Modal secret, so it is a secret recreate plus a redeploy — see below.
+
+**Updating CORS after the Vercel URL exists:**
+```powershell
+cd apps\api
+# edit CORS_ORIGINS in .env to: http://localhost:5173,https://<your-vercel-url>
+# then re-push the six secret keys and redeploy
+```
+The secret is read at container start, so the redeploy is required, not optional.
+
+- **Gotcha:** every `VITE_` variable is baked into the client bundle at build time. Changing one in the dashboard requires a **redeploy**, not just a save.
+- **Gotcha:** preview deployments get their own URLs, which `CORS_ORIGINS` will not match. Either add them as needed or accept that only production talks to the API.
 
 ### Railway — retired 2026-09-26
 - **Dashboard:** https://railway.app/dashboard
