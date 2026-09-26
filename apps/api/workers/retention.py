@@ -44,8 +44,18 @@ def retention_days() -> int:
 
 
 def exempt_job_ids() -> set[str]:
-    raw = os.environ.get("RETENTION_EXEMPT_JOB_IDS", "")
-    return {part.strip() for part in raw.split(",") if part.strip()}
+    exempt = {
+        part.strip()
+        for part in os.environ.get("RETENTION_EXEMPT_JOB_IDS", "").split(",")
+        if part.strip()
+    }
+    # The demo track is exempt by construction rather than by remembering to list
+    # it twice. Forgetting would delete the public demo's audio after the window
+    # and break the shared link with no warning.
+    demo = os.environ.get("DEMO_JOB_ID", "").strip()
+    if demo:
+        exempt.add(demo)
+    return exempt
 
 
 def _created_at_utc(job: JobRecord) -> datetime | None:

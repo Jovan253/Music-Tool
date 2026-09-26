@@ -18,6 +18,7 @@ from routes.upload import router as upload_router
 from routes.jobs import router as jobs_router
 from routes.stems import router as stems_router
 from routes.export import router as export_router
+from routes.demo import router as demo_router
 
 # No startup stale-job sweep: under Modal's scale-to-zero model containers start
 # and stop constantly, so a sweep would fire on every cold start and re-run jobs
@@ -41,6 +42,7 @@ app.include_router(upload_router)
 app.include_router(jobs_router)
 app.include_router(stems_router)
 app.include_router(export_router)
+app.include_router(demo_router)
 
 
 @app.get("/health")
