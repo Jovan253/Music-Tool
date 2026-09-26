@@ -2,14 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { fetchDemoJob, fetchDemoStemUrl, type DemoJob } from '../../lib/api'
 import { StemMixer, type MixerSource } from '../mixer/StemMixer'
 
-// Drop a screen recording at apps/web/public/demo.mp4 and it appears here. Until
-// then the slot is simply omitted rather than showing a broken player.
-const VIDEO_SRC = '/demo.mp4'
-
 export function DemoPage() {
   const [job, setJob] = useState<DemoJob | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [hasVideo, setHasVideo] = useState(false)
 
   const source = useMemo<MixerSource>(() => ({
     fetchStemUrl: fetchDemoStemUrl,
@@ -23,12 +18,6 @@ export function DemoPage() {
     fetchDemoJob()
       .then(d => { if (!cancelled) setJob(d) })
       .catch(() => { if (!cancelled) setError('The demo track is not available right now.') })
-
-    // A HEAD request avoids rendering a player for a file that was never added.
-    fetch(VIDEO_SRC, { method: 'HEAD' })
-      .then(res => { if (!cancelled) setHasVideo(res.ok) })
-      .catch(() => { if (!cancelled) setHasVideo(false) })
-
     return () => { cancelled = true }
   }, [])
 
@@ -48,18 +37,6 @@ export function DemoPage() {
           </p>
         </header>
 
-        {hasVideo && (
-          <div className="panel mb-8 overflow-hidden rounded-lg">
-            <video
-              src={VIDEO_SRC}
-              controls
-              playsInline
-              preload="metadata"
-              className="w-full"
-            />
-          </div>
-        )}
-
         <section aria-labelledby="try-it">
           <h2 id="try-it" className="legend mb-3 text-console-400">
             try it — this is a real separation
@@ -68,6 +45,14 @@ export function DemoPage() {
           {error && (
             <div className="panel rounded-lg px-4 py-8 text-center">
               <p className="text-console-300">{error}</p>
+            </div>
+          )}
+
+          {!job && !error && (
+            <div className="space-y-2" aria-busy>
+              {[0, 1, 2, 3].map(i => (
+                <div key={i} className="panel h-[86px] animate-pulse rounded-md" />
+              ))}
             </div>
           )}
 

@@ -80,6 +80,15 @@ export function StemMixer({ jobId, source, onReset, title = 'Stem mixer', embedd
   }, [jobId])
 
   useEffect(() => {
+    // Read duration once every channel is loaded rather than inside the ready
+    // handler: getDuration() can still report 0 at the moment `ready` fires, which
+    // left the transport showing 0:00 / 0:00 for the whole session.
+    if (!allReady) return
+    const total = wsRefs.current[0]?.getDuration() ?? 0
+    if (total > 0) setDuration(total)
+  }, [allReady])
+
+  useEffect(() => {
     if (!allReady) return
     STEMS.forEach((stem, i) => {
       let vol = volumes[stem]

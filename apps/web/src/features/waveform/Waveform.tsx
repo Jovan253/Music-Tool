@@ -24,7 +24,9 @@ export function Waveform({ url, color, dimmed = false, onReady, onDestroy }: Pro
     const ws = WaveSurfer.create({
       container: containerRef.current,
       url,
-      waveColor: `${color}4d`,
+      // 60% alpha: at 30% a saturated hue reads as plain grey against the near-black
+      // panel, which loses the per-channel identity the colour exists for.
+      waveColor: `${color}99`,
       progressColor: color,
       cursorColor: '#e9e9ef',
       cursorWidth: 1,
