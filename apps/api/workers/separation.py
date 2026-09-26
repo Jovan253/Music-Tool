@@ -1,4 +1,5 @@
 import io
+import logging
 import os
 import shutil
 import tempfile
@@ -12,6 +13,22 @@ from pydub import AudioSegment
 from audio.demucs import separate, STEM_NAMES, get_demucs_device
 from services.jobs import get_job, update_job
 from storage.supabase_storage import download_file, upload_file
+
+log = logging.getLogger(__name__)
+
+# The Modal function declares its own 300s timeout; leave headroom for container
+# cold start and the Supabase round trip. Local CPU separation was measured at
+# ~12 min for a 2-minute track.
+MODAL_TIMEOUT_S = 420
+LOCAL_CPU_TIMEOUT_S = 1800
+
+
+def modal_enabled() -> bool:
+    return bool(os.environ.get("MODAL_TOKEN_ID"))
+
+
+def separation_timeout() -> int:
+    return MODAL_TIMEOUT_S if modal_enabled() else LOCAL_CPU_TIMEOUT_S
 
 
 def _separate_via_modal(audio_bytes: bytes) -> dict[str, bytes]:
@@ -33,7 +50,16 @@ def run_separation(job_id: str) -> None:
         ext = upload_path.rsplit(".", 1)[-1] if "." in upload_path else "wav"
         audio_bytes = download_file("uploads", upload_path)
 
-        use_modal = bool(os.environ.get("MODAL_TOKEN_ID"))
+        use_modal = modal_enabled()
+        if use_modal:
+            log.info("Job %s: separating on Modal GPU", job_id)
+        else:
+            log.warning(
+                "Job %s: MODAL_TOKEN_ID not set — falling back to local CPU separation "
+                "on device %s, expect ~12 min for a 2-minute track",
+                job_id,
+                get_demucs_device(),
+            )
 
         t0 = time.monotonic()
 

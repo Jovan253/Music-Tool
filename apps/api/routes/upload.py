@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 from auth import get_current_user
 from services.jobs import create_job, update_job
-from workers.separation import run_separation
+from workers.separation import run_separation, separation_timeout
 from job_queue import get_queue
 from storage.supabase_storage import upload_file
 
@@ -44,7 +44,7 @@ async def upload_audio(
         raise HTTPException(status_code=500, detail=f"Storage upload failed: {exc}") from exc
     update_job(job.job_id, file_path=supabase_path)
 
-    get_queue().enqueue(run_separation, job.job_id, job_timeout=120)
+    get_queue().enqueue(run_separation, job.job_id, job_timeout=separation_timeout())
 
     return JSONResponse(
         status_code=201,

@@ -189,7 +189,7 @@ If it respawns or the PID won't resolve: `Get-Process python | Stop-Process -For
 
 **Jobs stuck in `processing`.** The RQ worker isn't running, or it crashed. Check terminal 3.
 
-**Jobs fail at ~2 minutes.** `apps/api/routes/upload.py:53` hard-codes `job_timeout=120`, which only works when Modal is configured. Without `MODAL_TOKEN_ID`, separation falls back to local CPU Demucs (~12 min) and gets killed at 120s. Either set the Modal tokens or raise the timeout for local work. **This is a known bug** — fixing it is step 1 of the plan.
+**Jobs fail on a timeout.** The RQ timeout now adapts to which separation path is active — `separation_timeout()` in `apps/api/workers/separation.py` returns 420s when `MODAL_TOKEN_ID` is set and 1800s when it isn't. If a job still times out, check the worker log: it logs which path it took on every run, and warns loudly when it falls back to local CPU.
 
 **CORS errors in the browser.** `CORS_ORIGINS` doesn't include the origin you're calling from. It's comma-separated and falls back to `http://localhost:5173`.
 
@@ -218,7 +218,7 @@ Decision made 2026-09-26: migrate off Railway to an all-free, scale-to-zero stac
 Removing Redis and RQ deletes `apps/api/job_queue.py`, the separate worker process, the Redis add-on, and the stale-job requeue logic in `apps/api/main.py:29`.
 
 Order of work:
-1. Fix the `job_timeout` / CPU-fallback mismatch so failures are loud instead of confusing.
+1. ~~Fix the `job_timeout` / CPU-fallback mismatch so failures are loud instead of confusing.~~ **Done.**
 2. Move the API to Modal, replace RQ with `.spawn()`, retire Railway.
 3. Move Postgres to Neon.
 4. Move storage to R2 and add a stem retention policy — at ~20–60MB per job, unbounded storage fills any free tier.
@@ -229,8 +229,7 @@ Order of work:
 
 ## Gotchas worth remembering
 
-- **`.github/` is in `.gitignore`.** Any CI workflow added now would be silently untracked. Fix the ignore rule before writing one.
-- **`.claude/` is also gitignored**, so project-level Claude config doesn't travel with the repo.
+- **`.claude/` is gitignored**, so project-level Claude config doesn't travel with the repo. `CLAUDE.md` at the root is tracked, which is the part that matters.
 - **`modal deploy` is a separate step from your API deploy.** The worker resolves the Modal function by name at runtime, so a stale or missing deploy fails only when a job runs.
 - **Two OpenSpec changes are unarchived** (`modal-gpu-worker`, `railway-deploy`) with all tasks ticked including production smoke tests that were never confirmed. Treat their checkmarks as unverified.
 - **Supabase free plan allows 2 active projects.** If another project holds a slot, this one can't be restored until you pause that one.
