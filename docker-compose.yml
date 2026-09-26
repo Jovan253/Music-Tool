@@ -3,9 +3,9 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: musictool
-      POSTGRES_USER: musictool
-      POSTGRES_PASSWORD: musictool
+      POSTGRES_DB: tracksplit
+      POSTGRES_USER: tracksplit
+      POSTGRES_PASSWORD: tracksplit
     ports:
       - "5432:5432"
     volumes:

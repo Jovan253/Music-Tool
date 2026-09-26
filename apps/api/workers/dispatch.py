@@ -9,7 +9,7 @@ from workers.separation import run_separation
 
 log = logging.getLogger(__name__)
 
-MODAL_APP_NAME = "music-tool-separation"
+MODAL_APP_NAME = "tracksplit-separation"
 MODAL_FUNCTION_NAME = "separate_job"
 
 _LOCAL_DEPS_MISSING = (

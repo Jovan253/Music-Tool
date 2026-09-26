@@ -10,7 +10,7 @@ REMOTE_DIR = "/root/api"
 SEPARATION_TIMEOUT_S = 900
 
 secret = modal.Secret.from_name(
-    "music-tool",
+    "tracksplit",
     required_keys=[
         "DATABASE_URL",
         "SUPABASE_URL",
@@ -46,7 +46,7 @@ image = (
     )
 )
 
-app = modal.App("music-tool-separation")
+app = modal.App("tracksplit-separation")
 
 
 @app.function(

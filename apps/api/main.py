@@ -22,7 +22,7 @@ from routes.export import router as export_router
 # No startup stale-job sweep: under Modal's scale-to-zero model containers start
 # and stop constantly, so a sweep would fire on every cold start and re-run jobs
 # that are legitimately in flight. Modal function retries cover that instead.
-app = FastAPI(title="Music Tool API")
+app = FastAPI(title="TrackSplit API")
 
 _cors_origins = [
     o.strip()

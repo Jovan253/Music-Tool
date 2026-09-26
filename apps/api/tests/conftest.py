@@ -9,7 +9,7 @@ from pathlib import Path
 # with nothing to provision — every column type in models/job.py is generic. Note
 # this is an assignment, not setdefault: a developer's .env points DATABASE_URL at
 # Neon, and tests must never write to it.
-_TEST_DB = Path(tempfile.gettempdir()) / "music_tool_test.db"
+_TEST_DB = Path(tempfile.gettempdir()) / "tracksplit_test.db"
 os.environ["DATABASE_URL"] = f"sqlite:///{_TEST_DB}"
 os.environ.setdefault("SUPABASE_URL", "https://example.supabase.co")
 os.environ.setdefault("SUPABASE_SERVICE_ROLE_KEY", "test-service-role-key")

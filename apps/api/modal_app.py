@@ -8,7 +8,7 @@ REMOTE_DIR = "/root/api"
 # required_keys makes a missing variable fail when the secret resolves at deploy
 # time, instead of at container import once traffic is already arriving.
 secret = modal.Secret.from_name(
-    "music-tool",
+    "tracksplit",
     required_keys=[
         "DATABASE_URL",
         "SUPABASE_URL",
@@ -44,7 +44,7 @@ image = (
     )
 )
 
-app = modal.App("music-tool-api")
+app = modal.App("tracksplit-api")
 
 
 def _add_api_to_path() -> None:

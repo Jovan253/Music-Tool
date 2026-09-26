@@ -92,7 +92,7 @@ export function UploadZone({ onReady }: Props) {
       <div className="w-full max-w-xl">
         <header className="mb-8 text-center">
           <h1 className="font-mono text-2xl font-semibold tracking-tight text-console-100 sm:text-3xl">
-            Music Tool
+            TrackSplit
           </h1>
           <p className="legend mt-2 text-console-500">
             split a track into vocals · drums · bass · other

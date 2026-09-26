@@ -1,5 +1,5 @@
 {
-  "name": "music-tool",
+  "name": "tracksplit",
   "private": true,
   "workspaces": [
     "apps/web"

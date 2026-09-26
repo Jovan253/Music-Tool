@@ -55,7 +55,7 @@ export function LoginPage() {
       <div className="w-full max-w-sm">
         <header className="mb-6 text-center">
           <h1 className="font-mono text-2xl font-semibold tracking-tight text-console-100">
-            Music Tool
+            TrackSplit
           </h1>
           <p className="legend mt-2 text-console-500">
             split a track into vocals · drums · bass · other
