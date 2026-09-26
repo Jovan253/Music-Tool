@@ -1,6 +1,5 @@
 import logging
 import os
-from contextlib import asynccontextmanager
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -19,21 +18,11 @@ from routes.upload import router as upload_router
 from routes.jobs import router as jobs_router
 from routes.stems import router as stems_router
 from routes.export import router as export_router
-from services.jobs import get_stale_processing_jobs, update_job
-from workers.separation import run_separation, separation_timeout
-from job_queue import get_queue
 
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    stale = get_stale_processing_jobs()
-    for job_id in stale:
-        update_job(job_id, status="pending")
-        get_queue().enqueue(run_separation, job_id, job_timeout=separation_timeout())
-    yield
-
-
-app = FastAPI(title="Music Tool API", lifespan=lifespan)
+# No startup stale-job sweep: under Modal's scale-to-zero model containers start
+# and stop constantly, so a sweep would fire on every cold start and re-run jobs
+# that are legitimately in flight. Modal function retries cover that instead.
+app = FastAPI(title="Music Tool API")
 
 _cors_origins = [
     o.strip()

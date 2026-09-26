@@ -60,12 +60,6 @@ def get_job(job_id: str, user_id: str | None = None) -> JobRecord | None:
         return _to_record(row)
 
 
-def get_stale_processing_jobs() -> list[str]:
-    with SessionLocal() as db:
-        rows = db.query(JobModel).filter(JobModel.status == "processing").all()
-        return [row.job_id for row in rows]
-
-
 def update_job(
     job_id: str,
     *,
