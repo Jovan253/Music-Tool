@@ -26,6 +26,12 @@ local-separation = [
     "demucs>=4.0",
     "torch==2.5.1",
     "torchaudio==2.5.1",
+    # Neither torch nor demucs declares numpy, so it installs clean and then fails
+    # at import. Held below 2.x because demucs 4.x and its museval/openunmix
+    # dependencies predate the numpy 2 API changes.
+    "numpy<2",
+    # demucs reads and writes audio through soundfile on several paths.
+    "soundfile>=0.12",
 ]
 dev = [
     "pytest>=8.0",

@@ -75,6 +75,11 @@ def update_job(
             raise ValueError(f"Job {job_id!r} not found")
         if status is not None:
             row.status = status
+            # A job that failed and then succeeded on a retry must not keep its old
+            # error text. Callers cannot clear it themselves: `error=None` means
+            # "leave unchanged" here, so there is no way to pass an explicit null.
+            if status != "failed":
+                row.error = None
         if file_path is not None:
             row.file_path = file_path
         if stems is not None:

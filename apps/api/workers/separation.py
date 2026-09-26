@@ -1,6 +1,5 @@
 import io
 import logging
-import os
 import shutil
 import tempfile
 import time
@@ -15,10 +14,6 @@ from services.jobs import get_job, update_job
 from storage.supabase_storage import download_file, upload_file
 
 log = logging.getLogger(__name__)
-
-
-def modal_enabled() -> bool:
-    return bool(os.environ.get("MODAL_TOKEN_ID"))
 
 
 def run_separation(job_id: str) -> None:
