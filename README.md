@@ -8,8 +8,11 @@ AI-powered music backing track generator. Upload a song, separate it into stems 
 
 - Node.js 20.x (do not use 20.19+ — Vite 5 requires exactly 20.18 or lower)
 - Python 3.11+
-- Docker Desktop (for PostgreSQL and Redis)
+- ffmpeg on PATH (`winget install Gyan.FFmpeg`) — `pydub` needs it for export and MP3 transcoding
 - A free [Supabase](https://supabase.com) project with two storage buckets: `uploads` and `stems`
+- A free [Neon](https://console.neon.tech) Postgres database
+- A free [Modal](https://modal.com) account — runs both the API and GPU separation
+- Docker Desktop is **optional**, only if you want a local Postgres instead of Neon
 
 ## First-time setup
 
@@ -21,13 +24,14 @@ cd music-tool
 npm install
 ```
 
-### 2. Start local services (PostgreSQL + Redis)
+### 2. Start local Postgres (optional)
 
 ```bash
 docker compose up -d
 ```
 
-This starts PostgreSQL on port 5432 and Redis on port 6379.
+Only needed if you'd rather not point `DATABASE_URL` at Neon. There is no Redis
+any more — the job queue is Modal.
 
 ### 3. Backend environment
 
@@ -71,7 +75,7 @@ alembic upgrade head
 
 ## Running the app
 
-You need three processes running simultaneously — open three terminals.
+Two processes — open two terminals.
 
 **Terminal 1 — Frontend**
 ```bash
@@ -84,17 +88,9 @@ cd apps/api
 uvicorn main:app --reload
 ```
 
-**Terminal 3 — RQ worker** (Windows)
-```bash
-cd apps/api
-.venv\Scripts\rq worker default --worker-class rq.SimpleWorker
-```
-
-**Terminal 3 — RQ worker** (macOS / Linux)
-```bash
-cd apps/api
-rq worker default
-```
+There is no worker process. With `MODAL_TOKEN_ID` set, uploads are dispatched to
+Modal's GPU and finish in ~25 seconds. Without it, separation runs in-process as
+a background task on your CPU, which takes ~12 minutes per track.
 
 ### Verify
 
@@ -125,7 +121,10 @@ Then restart uvicorn. Confirm it's receiving requests by checking that `POST /up
 
 ### Jobs stuck in "processing" / stems never appear
 
-The RQ worker must be running separately — the API server does not process jobs itself. Start it in a third terminal (see above).
+Check the `music-tool-separation` logs at [modal.com/apps](https://modal.com/apps).
+A common cause is that the separation app was never deployed — `workers/dispatch.py`
+resolves the function by name at runtime, so a missing deploy fails only once a
+job actually runs, not at API startup.
 
 ### Old jobs (pre-Supabase) fail after migration
 
@@ -158,50 +157,60 @@ music-tool/
 └── README.md
 ```
 
-## Railway Deployment (backend)
+## Deployment (backend on Modal)
 
-### 1. Create the Railway project
+The backend runs on [Modal](https://modal.com), which hosts both the API and the
+GPU separation function and scales to zero when idle. On Modal's free Starter
+plan ($30/month of credits) this costs nothing at portfolio traffic levels.
 
-1. Go to [railway.app](https://railway.app) and create a new project
-2. Add a **PostgreSQL** add-on — Railway injects `DATABASE_URL` automatically
-3. Add a **Redis** add-on — Railway injects `REDIS_URL` automatically
-4. Connect your GitHub repo and set the **root directory to `apps/api`**
+### 1. Authenticate
 
-### 2. Add services
+```bash
+cd apps/api
+.venv/Scripts/modal.exe token new   # opens a browser
+```
 
-Railway needs two services from this repo:
+### 2. Create the secret
 
-| Service | Start command |
-|---------|--------------|
-| `web` | `bash start.sh` (runs migrations then uvicorn) |
-| `worker` | `rq worker default --worker-class rq.SimpleWorker` |
+Production config comes from a Modal secret named `music-tool`, not from a
+`.env` file. It must contain `DATABASE_URL`, `SUPABASE_URL`,
+`SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`, `SECRET_KEY` and
+`CORS_ORIGINS` — the app refuses to deploy if any are missing.
 
-Both services share the same environment variables.
+```bash
+modal secret create music-tool --from-dotenv <a file holding only those six keys>
+```
 
-### 3. Set environment variables
+Don't feed it `apps/api/.env` wholesale: that would hand Modal its own
+`MODAL_TOKEN_SECRET`, which the API has no reason to hold.
 
-Set the following on **both** the `web` and `worker` services (use Railway's "Copy variables" feature after setting them on the first service):
+### 3. Deploy both apps
 
-| Variable | Value |
-|----------|-------|
-| `SUPABASE_URL` | Your Supabase project URL |
-| `SUPABASE_SERVICE_ROLE_KEY` | Service role key (Settings → API) |
-| `SUPABASE_ANON_KEY` | Anon key (Settings → API) |
-| `SECRET_KEY` | Random string — generate with `openssl rand -hex 32` |
-| `DEMUCS_DEVICE` | `cpu` (Railway hobby tier has no GPU) |
-| `CORS_ORIGINS` | `http://localhost:5173` for now; update to your Vercel URL after frontend deploy |
+```bash
+cd apps/api
+modal deploy modal_app.py          # the FastAPI app + migrate()
+modal deploy modal_separation.py   # the T4 GPU separation function
+```
 
-`DATABASE_URL` and `REDIS_URL` are injected automatically by the add-ons — no need to set them manually.
+### 4. Migrate
 
-### 4. Deploy
+Migrations are an explicit step, deliberately outside the request path — running
+them at app startup would race whenever Modal starts more than one container.
 
-Push to `main` — Railway auto-deploys. The `web` service runs `alembic upgrade head` on every start before uvicorn begins accepting traffic.
+```bash
+modal run modal_app.py::migrate
+```
 
-Smoke test: `GET https://<your-railway-domain>/health` → `{"status":"ok"}`
+### 5. Smoke test
+
+`GET https://<your-workspace>--music-tool-api-fastapi-app.modal.run/health` → `{"status":"ok"}`
+
+Expect ~6s on a cold start and well under a second warm.
 
 ## Notes
 
 - The frontend reads `VITE_API_BASE_URL` from `.env` — must be prefixed `VITE_` for Vite to expose it client-side. Defaults to `http://localhost:8000`.
-- CORS origins are driven by the `CORS_ORIGINS` env var (comma-separated). Falls back to `http://localhost:5173` for local dev.
+- CORS origins are driven by the `CORS_ORIGINS` env var (comma-separated). Falls back to `http://localhost:5173` for local dev. In production it comes from the Modal secret, so changing it means recreating the secret and redeploying.
 - Never commit `.env` files — they are gitignored.
-- Stem separation (Demucs) takes 30–60 seconds per track on CPU. The job will show as processing until the worker completes it.
+- Stem separation takes ~25 seconds on Modal's T4. On a local CPU it is ~12 minutes, and the job shows as `processing` throughout.
+- `workers/dispatch.py` resolves the Modal function **by name** at runtime, so deploying the API without the separation app fails only when a job runs.

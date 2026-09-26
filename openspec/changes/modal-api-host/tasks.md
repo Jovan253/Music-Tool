@@ -10,31 +10,62 @@ install the `local-separation` extra via `pip_install_from_pyproject`, use
 
 ## 2. Secrets
 
-- [ ] 2.1 Create a Modal Secret holding `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`, `SECRET_KEY`, `CORS_ORIGINS`
-- [ ] 2.2 Document the secret's name and contents in `RUNBOOK.md`
+- [x] 2.1 Create a Modal Secret holding `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`, `SECRET_KEY`, `CORS_ORIGINS`
+- [x] 2.2 Document the secret's name and contents in `RUNBOOK.md`
+
+Created as `music-tool` via `modal secret create --from-dotenv` on a filtered
+temp file outside the repo, so no value passed through a command line.
+`MODAL_TOKEN_SECRET` and the R2 keys were deliberately excluded — the API has
+no need for Modal's own credentials.
 
 ## 3. Modal app
 
-- [ ] 3.1 Create `apps/api/modal_app.py` defining the image (python 3.11, project dependencies, `apt_install("ffmpeg")`, API source) and the Modal app
-- [ ] 3.2 Add the ASGI entrypoint returning the existing `main.app`, with the secret attached
-- [ ] 3.3 Add a `migrate()` function that runs `alembic upgrade head`
-- [ ] 3.4 Deploy and confirm `GET /health` responds on the Modal URL
+- [x] 3.1 Create `apps/api/modal_app.py` defining the image (python 3.11, project dependencies, `apt_install("ffmpeg")`, API source) and the Modal app
+- [x] 3.2 Add the ASGI entrypoint returning the existing `main.app`, with the secret attached
+- [x] 3.3 Add a `migrate()` function that runs `alembic upgrade head`
+- [x] 3.4 Deploy and confirm `GET /health` responds on the Modal URL
+
+Deployed at `https://jovan253--music-tool-api-fastapi-app.modal.run`. `/health`
+returns 200 in 6.5s cold and 0.18s warm; `/docs` serves; an unauthenticated
+`/jobs/{id}` returns 401. `migrate()` ran against Neon and found it at head,
+which also proved the image contains `alembic.ini` and `alembic/` — the files
+`add_local_python_source` would have dropped.
 
 ## 4. Move the job body into Modal
 
-- [ ] 4.1 Extend `apps/api/audio/modal_separation.py` so the GPU function takes `job_id`, downloads the upload, separates, transcodes to MP3, uploads stems, and writes `done`/`failed` with `processing_ms`
-- [ ] 4.2 Attach the secret and set `retries` on the function
-- [ ] 4.3 Reduce `apps/api/workers/separation.py` to the local development path only
-- [ ] 4.4 Verify a failure inside the Modal function lands as `failed` with a useful `error` on the job row
+- [x] 4.1 Extend the GPU function so it takes `job_id`, downloads the upload, separates, transcodes to MP3, uploads stems, and writes `done`/`failed` with `processing_ms`
+- [x] 4.2 Attach the secret and set `retries` on the function
+- [x] 4.3 Reduce `apps/api/workers/separation.py` to a single implementation with no Modal branch
+- [ ] 4.4 Verify a failure *during separation* lands as `failed` with a useful `error` on the job row
+
+Moved to `apps/api/modal_separation.py` (repo root rather than `audio/`) so the
+Modal entrypoint sits beside `modal_app.py`.
+
+4.3 turned out to be load-bearing, not cosmetic: `run_separation` branched on
+`MODAL_TOKEN_ID` internally, so once the same function ran *inside* the Modal
+container — where that token exists — it would have called Modal from within
+Modal. The branch moved out to `workers/dispatch.py`.
+
+4.4 is partly covered: invoking `separate_job` with an unknown job id raised
+`ValueError` from inside the GPU container, proving the source mounts, secret,
+Neon connection and torch/demucs imports all work, and that `retries=2` is
+active. A failure *after* the status write — mid-separation — is still
+unverified.
 
 ## 5. Replace the queue
 
-- [ ] 5.1 Change `apps/api/routes/upload.py` to `.spawn()` the Modal function when Modal is configured, and to run the local path in-process otherwise
-- [ ] 5.2 Remove the lifespan stale-job sweep from `apps/api/main.py`
-- [ ] 5.3 Delete `apps/api/job_queue.py`
-- [ ] 5.4 Remove `rq` and `redis` from `pyproject.toml`
-- [ ] 5.5 Remove the Redis service from `docker-compose.yml`
-- [ ] 5.6 Update the tests: drop any Redis assumptions, add coverage for dispatch choosing Modal vs local
+- [x] 5.1 Change `apps/api/routes/upload.py` to `.spawn()` the Modal function when Modal is configured, and to run the local path in-process otherwise
+- [x] 5.2 Remove the lifespan stale-job sweep from `apps/api/main.py`
+- [x] 5.3 Delete `apps/api/job_queue.py`
+- [x] 5.4 Remove `rq` and `redis` from `pyproject.toml`
+- [x] 5.5 Remove the Redis service from `docker-compose.yml`
+- [x] 5.6 Update the tests: drop any Redis assumptions, add coverage for dispatch choosing Modal vs local
+
+The local path uses a FastAPI `BackgroundTask` so the endpoint stays responsive
+without Redis. Also deleted `get_stale_processing_jobs`, dead once the sweep
+went. 18 tests pass, including one asserting the dispatch function-name
+constant still matches the deployed Modal function, since that name is resolved
+at runtime and a rename would otherwise surface only when a job runs.
 
 ## 6. Retire Railway
 

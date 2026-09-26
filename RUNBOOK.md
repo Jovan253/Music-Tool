@@ -12,14 +12,18 @@ Last verified: **2026-09-26** (repo had been dormant since 2026-05-26).
 
 | Thing | State |
 |---|---|
-| Local dev environment | **Absent.** No `.env` files, no `apps/api/.venv`, no `node_modules`. Cold start required — see [Cold start](#cold-start-local). |
-| Supabase project | Exists, but **likely auto-paused** (free plan pauses after 7 days of no DB activity). Restore is free, one click. |
-| Railway | Project exists. **Being retired** — see [Target architecture](#target-architecture). |
-| Modal | Account status unconfirmed. `music-tool-separation` must be deployed for GPU separation to work. |
+| Local dev environment | Working. `apps/api/.venv` and `node_modules` installed, `.env` files populated. **ffmpeg is still missing** — see [Cold start](#cold-start-local). |
+| API | **Live on Modal**: `https://jovan253--music-tool-api-fastapi-app.modal.run`. `/health` 200 in 6.5s cold, 0.18s warm. |
+| GPU separation | **Live on Modal** as `music-tool-separation` / `separate_job`. |
+| Postgres | **Live on Neon**, migrated to head (`7bc48242348d`). |
+| Supabase | Used for auth and (still) file storage. Was auto-paused after the dormancy; restored. |
+| Modal secret | `music-tool` exists with all six required keys. |
+| Railway | Still running, **not yet retired** — it stays until one real upload succeeds end-to-end on Modal. |
+| Cloudflare R2 | Credentials in `.env`, but **no code reads them yet** — the storage migration is a later change. |
 | Vercel | Not set up yet. |
-| Automated tests / CI | None exist. |
+| Tests / CI | 18 API tests; GitHub Actions runs them plus web lint and build. Green. |
 
-The app has never been verified running end-to-end in production.
+**Not yet verified end-to-end:** a real authenticated upload producing four playable stems. Everything up to that point is confirmed working.
 
 ---
 
@@ -36,9 +40,10 @@ Fill this in the first time you check each dashboard, so you never have to hunt 
 | Neon project / connection host | `<fill in>` | Neon console → your project → Connection string |
 | R2 account ID | `<fill in>` | Cloudflare dashboard → R2 → Overview |
 | R2 bucket names | `uploads`, `stems` | Chosen to match the current Supabase bucket names |
-| Modal workspace | `<fill in>` | modal.com → workspace switcher |
-| Modal app name | `music-tool-separation` | Defined in `apps/api/audio/modal_separation.py:8` |
-| Deployed API URL | `<fill in>` | Modal app URL once the ASGI app is deployed |
+| Modal workspace | `jovan253` | `modal profile current` |
+| Modal apps | `music-tool-api`, `music-tool-separation` | `apps/api/modal_app.py`, `apps/api/modal_separation.py` |
+| Modal secret name | `music-tool` | `modal secret list` |
+| Deployed API URL | https://jovan253--music-tool-api-fastapi-app.modal.run | `modal app list`, or the deploy output |
 | Vercel frontend URL | `<fill in>` | Vercel project → Domains |
 | GitHub repo | https://github.com/Jovan253/Music-Tool | — |
 
@@ -60,26 +65,39 @@ What each service does, where to go, and what to check when something is broken.
   - Auth → Users → confirm your login account still exists.
 - **Keeping it alive:** any real DB query resets the 7-day pause clock. A weekly Modal cron that pings the database is the cheap insurance (free, and Modal cron is included).
 
-### Modal — GPU separation (and, after migration, the API)
+### Modal — hosts both the API and GPU separation
 - **Dashboard:** https://modal.com/apps
 - **Tokens:** https://modal.com/settings/tokens
-- **Currently does:** runs Demucs on a T4 GPU. `apps/api/workers/separation.py:17` looks the function up **by name**, so the app must already be deployed — it is not deployed automatically with your API.
+- **Two apps, deployed separately:**
+
+  | App | Entrypoint | What it is |
+  |---|---|---|
+  | `music-tool-api` | `apps/api/modal_app.py` | The FastAPI app as an ASGI function, plus `migrate()` |
+  | `music-tool-separation` | `apps/api/modal_separation.py` | `separate_job(job_id)` on a T4, owns the whole job |
+
 - **Free plan:** Starter is $0 with **$30/month of compute credits** (~50 T4-hours), 10 concurrent GPUs. At ~25s/song that is thousands of songs a month.
-- **Deploy the separation app:**
+- **Deploy:**
   ```powershell
   cd apps\api
-  modal deploy audio/modal_separation.py
+  .venv\Scripts\modal.exe deploy modal_app.py
+  .venv\Scripts\modal.exe deploy modal_separation.py
+  ```
+- **Run migrations** (never runs automatically — deliberately outside the request path):
+  ```powershell
+  .venv\Scripts\modal.exe run modal_app.py::migrate
   ```
 - **Check when broken:**
-  - modal.com/apps → is `music-tool-separation` listed and deployed?
+  - modal.com/apps → are both apps listed as deployed?
+  - `workers/dispatch.py` resolves `separate_job` **by name at runtime**, so a rename or a missing separation deploy fails only once a job actually runs, not at API boot.
   - The app's logs tab shows per-invocation errors and GPU cold-start time.
   - Credit balance on the billing page — jobs fail once credits run out.
+- **Secrets:** the `music-tool` secret supplies all six config vars. Changing a value means `modal secret create music-tool --from-dotenv <file> --force`, then redeploying both apps.
 
-### Neon — Postgres (migration target)
+### Neon — Postgres
 - **Dashboard:** https://console.neon.tech
-- **Will do:** job records (`apps/api/models/job.py`), schema managed by Alembic.
+- **Does:** job records (`apps/api/models/job.py`), schema managed by Alembic. Currently at revision `7bc48242348d`.
 - **Free plan:** 0.5GB storage, 100 CU-hours/month, auto-suspends after 5 minutes idle but **auto-resumes on the next connection in ~0.5–1s** — no manual unpausing, which is why it beats Supabase Postgres here.
-- **Note:** `apps/api/db.py` already sets `pool_pre_ping=True`, which is exactly what's needed to survive auto-suspend. No code change required beyond `DATABASE_URL`.
+- **Note:** `apps/api/db.py` sets `pool_pre_ping=True`, which is what makes auto-suspend survivable, and normalizes the URL so a `postgres://` connection string from any provider works.
 
 ### Cloudflare R2 — object storage (migration target)
 - **Dashboard:** https://dash.cloudflare.com → R2
@@ -106,15 +124,20 @@ Backend (`apps/api/.env`, copied from `apps/api/.env.example`):
 
 | Variable | Comes from | Notes |
 |---|---|---|
-| `DATABASE_URL` | docker compose locally; Neon in prod | Local: `postgresql://musictool:musictool@localhost:5432/musictool` |
-| `REDIS_URL` / `RQ_REDIS_URL` | docker compose locally | **Goes away** once the queue moves to Modal `.spawn()` |
+| `DATABASE_URL` | Neon console → Connection string | Currently points at Neon even locally, so docker compose Postgres is optional. A `postgres://` URL is normalized automatically. |
 | `SUPABASE_URL` | Supabase → Settings → Data API | Public value |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Settings → API | **Secret.** Server-side only, never in frontend |
 | `SUPABASE_ANON_KEY` | Supabase → Settings → API | Public by design |
 | `SECRET_KEY` | you | Generate: `openssl rand -hex 32` |
 | `CORS_ORIGINS` | you | Comma-separated. Must include your Vercel URL in prod |
-| `DEMUCS_DEVICE` | you | `cpu` or `cuda`. Only affects the local fallback path |
-| `MODAL_TOKEN_ID` / `MODAL_TOKEN_SECRET` | modal.com → Settings → Tokens | **Secret.** Presence of `MODAL_TOKEN_ID` is what switches separation to GPU |
+| `DEMUCS_DEVICE` | you | `cpu` or `cuda`. Only affects the local in-process path |
+| `MODAL_TOKEN_ID` / `MODAL_TOKEN_SECRET` | modal.com → Settings → Tokens | **Secret.** Presence of `MODAL_TOKEN_ID` is what makes dispatch spawn on Modal instead of running in-process |
+| `R2_*` | Cloudflare → R2 | **No code reads these yet.** Present ahead of the storage migration. |
+
+Production values do **not** come from this file — they come from the Modal
+secret `music-tool`, which holds the first six rows. Note that `MODAL_TOKEN_*`
+and the R2 keys are deliberately *excluded* from that secret: the API has no
+need for Modal's own credentials, and nothing reads R2 yet.
 
 Frontend (`apps/web/.env`, copied from `apps/web/.env.example`):
 
@@ -130,20 +153,15 @@ Anything prefixed `VITE_` is compiled into the client bundle and is world-readab
 
 ## Cold start (local)
 
-Current state assumed: nothing installed. Verified present on this machine: Node v20.11.0, Python 3.11.8, Docker 29.7.2.
+For a machine with nothing installed. Verified present here: Node v20.11.0, Python 3.11.8, Docker 29.7.2.
 
-**1. Unpause Supabase.** https://supabase.com/dashboard → if the project shows *Paused*, restore it. Nothing else will work until this is done.
+**1. Unpause Supabase.** https://supabase.com/dashboard → if the project shows *Paused*, restore it. Auth won't work until you do.
 
-**2. Start local Postgres + Redis.**
-```powershell
-docker compose up -d
-```
-
-**3. Backend env + dependencies.**
+**2. Backend env + dependencies.**
 ```powershell
 cd apps\api
 Copy-Item .env.example .env
-# edit .env — at minimum SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY
+# edit .env — at minimum SUPABASE_* and DATABASE_URL
 python -m venv .venv
 .venv\Scripts\activate
 pip install -e ".[dev]"
@@ -154,9 +172,11 @@ Dependency extras — the core install is deliberately light:
 
 | Install | Gets you |
 |---|---|
-| `pip install -e .` | API, queue, storage, Modal client. No torch. |
+| `pip install -e .` | API, storage, Modal client. No torch. |
 | `pip install -e ".[dev]"` | The above plus pytest. Use this for normal development. |
 | `pip install -e ".[local-separation]"` | Adds torch + demucs (~2.5GB) — only needed to run separation on your own CPU instead of Modal. |
+
+Docker is now **optional**: Redis is gone entirely, and `DATABASE_URL` points at Neon. Run `docker compose up -d` only if you want a local Postgres instead.
 
 **ffmpeg is a separate system install** and `pydub` needs it for the export mixdown and MP3 transcode. Without it, export fails at runtime with a confusing pydub warning. Install once:
 ```powershell
@@ -170,25 +190,30 @@ Copy-Item .env.example .env
 npm install
 ```
 
-**5. Run three processes, one terminal each.**
+**4. Run two processes, one terminal each.** (There is no third terminal any more — the RQ worker is gone.)
 ```powershell
 # Terminal 1 — frontend
 cd apps\web; npm run dev
 
 # Terminal 2 — API
 cd apps\api; .venv\Scripts\activate; uvicorn main:app --reload
-
-# Terminal 3 — worker (SimpleWorker avoids Windows fork issues)
-cd apps\api; .venv\Scripts\activate; rq worker default --worker-class rq.SimpleWorker
 ```
 
-**6. Verify.**
+**5. Verify.**
 - http://localhost:5173 — frontend
 - http://localhost:8000/health — `{"status":"ok"}`
 - http://localhost:8000/docs — API docs
 - Sign in, upload a short clip, confirm four stems appear in the mixer.
 
-Do not skip step 5's third terminal. The API does not process jobs itself — without the worker, jobs sit in `processing` forever.
+With `MODAL_TOKEN_ID` set, uploads dispatch to Modal's GPU and come back in ~25s. Without it, separation runs in-process as a FastAPI background task on your CPU — roughly 12 minutes per track, and `uvicorn --reload` may kill it mid-run.
+
+### Testing the local frontend against the deployed API
+
+Point the frontend at Modal instead of localhost by setting `VITE_API_BASE_URL` in `apps/web/.env`:
+```
+VITE_API_BASE_URL=https://jovan253--music-tool-api-fastapi-app.modal.run
+```
+This works because the Modal secret's `CORS_ORIGINS` still allows `http://localhost:5173`. Restart the Vite dev server after changing it — Vite reads env at startup.
 
 ---
 
@@ -200,13 +225,15 @@ Get-NetTCPConnection -LocalPort 8000 -State Listen | ForEach-Object { Stop-Proce
 ```
 If it respawns or the PID won't resolve: `Get-Process python | Stop-Process -Force`.
 
-**Jobs stuck in `processing`.** The RQ worker isn't running, or it crashed. Check terminal 3.
+**Jobs stuck in `processing`.** Check the `music-tool-separation` logs on modal.com. A job that dies without writing a terminal status means the container was killed rather than raising — `run_separation` records `failed` on any exception it sees. There is no longer a startup sweep to rescue these; Modal's `retries=2` is the recovery mechanism.
 
-**Jobs fail on a timeout.** The RQ timeout now adapts to which separation path is active — `separation_timeout()` in `apps/api/workers/separation.py` returns 420s when `MODAL_TOKEN_ID` is set and 1800s when it isn't. If a job still times out, check the worker log: it logs which path it took on every run, and warns loudly when it falls back to local CPU.
+**Jobs fail on a timeout.** `SEPARATION_TIMEOUT_S` in `apps/api/modal_separation.py` is 900s, which is generous because a cold container pulls Demucs weights before starting work. Actual separation on a T4 is ~25s.
 
-**CORS errors in the browser.** `CORS_ORIGINS` doesn't include the origin you're calling from. It's comma-separated and falls back to `http://localhost:5173`.
+**CORS errors in the browser.** `CORS_ORIGINS` doesn't include the origin you're calling from. In production it comes from the Modal secret, not `.env` — updating it means recreating the secret and redeploying.
 
-**Modal call fails with "function not found".** The app was never deployed, or was deployed to a different workspace. Re-run `modal deploy audio/modal_separation.py`.
+**Modal call fails with "function not found".** `workers/dispatch.py` resolves the function by name at runtime. Either `music-tool-separation` was never deployed, it went to a different workspace, or `separate_job` was renamed without updating `MODAL_FUNCTION_NAME`. Re-run `modal deploy modal_separation.py`.
+
+**Config change didn't take effect in production.** The Modal secret is read at container start, so recreate the secret *and* redeploy both apps.
 
 **Jobs created before May 2026 fail.** Pre-Supabase jobs store local filesystem paths that no longer resolve. Expected; ignore those rows.
 
@@ -218,25 +245,25 @@ If it respawns or the PID won't resolve: `Get-Process python | Stop-Process -For
 
 Decision made 2026-09-26: migrate off Railway to an all-free, scale-to-zero stack. Motivation is uptime as much as cost — Supabase's 7-day pause and Railway's $1/month free credit both make an occasionally-visited portfolio app fragile.
 
-| Concern | From | To |
-|---|---|---|
-| API host | Railway `web` service | Modal `@modal.asgi_app()` |
-| Job queue | Redis + RQ + Railway `worker` | Modal `.spawn()` + poll by call id |
-| GPU separation | Modal | unchanged |
-| Postgres | Supabase / Railway add-on | Neon |
-| Object storage | Supabase Storage | Cloudflare R2 |
-| Auth | Supabase Auth | unchanged |
-| Frontend | — | Vercel |
-
-Removing Redis and RQ deletes `apps/api/job_queue.py`, the separate worker process, the Redis add-on, and the stale-job requeue logic in `apps/api/main.py:29`.
+| Concern | From | To | State |
+|---|---|---|---|
+| API host | Railway `web` service | Modal `@modal.asgi_app()` | **Done** |
+| Job queue | Redis + RQ + Railway `worker` | Modal `.spawn()` | **Done** — `job_queue.py`, the worker and the stale-job sweep are deleted |
+| GPU separation | Modal, inference only | Modal, owns the whole job | **Done** |
+| Postgres | Supabase / Railway add-on | Neon | **Done** — migrated to head |
+| Object storage | Supabase Storage | Cloudflare R2 | Not started; credentials in place |
+| Auth | Supabase Auth | unchanged | — |
+| Frontend | — | Vercel | Not started |
+| Railway | 4 always-on services | deleted | **Pending** the end-to-end upload test |
 
 Order of work:
 1. ~~Fix the `job_timeout` / CPU-fallback mismatch so failures are loud instead of confusing.~~ **Done.**
-2. Move the API to Modal, replace RQ with `.spawn()`, retire Railway.
-3. Move Postgres to Neon.
+2. ~~Move the API to Modal, replace RQ with `.spawn()`.~~ **Done.** Retiring Railway is the one remaining piece, gated on a real upload succeeding.
+3. ~~Move Postgres to Neon.~~ **Done.**
 4. Move storage to R2 and add a stem retention policy — at ~20–60MB per job, unbounded storage fills any free tier.
-5. ~~Baseline tests + CI.~~ **Done** — 17 API tests plus a GitHub Actions workflow running them alongside web lint and build.
+5. ~~Baseline tests + CI.~~ **Done** — 18 API tests plus a GitHub Actions workflow running them alongside web lint and build.
 6. UX polish: upload progress, waveform loading states, error surfaces, mobile layout.
+7. Deploy the frontend to Vercel, then add its URL to `CORS_ORIGINS` in the Modal secret.
 
 ---
 
