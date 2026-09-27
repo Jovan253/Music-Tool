@@ -2,7 +2,10 @@
 
 AI-powered music backing track generator. Upload a song, separate it into stems (vocals, drums, bass, other), and create custom mixes for practice.
 
-> Returning to this project after a break? Start with [RUNBOOK.md](RUNBOOK.md) — service dashboards, credential provenance, cold-start steps, and current deployment status.
+**[Try it without signing up →](https://music-tool-web.vercel.app/demo)** — a real separation you can mute, solo and mix in the browser.
+
+> **[DECISIONS.md](DECISIONS.md)** — why this stack, what was rejected, and what each choice costs.
+> **[RUNBOOK.md](RUNBOOK.md)** — service dashboards, credential provenance, cold-start steps, deployment status.
 
 ## How it works
 
