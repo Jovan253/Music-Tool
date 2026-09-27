@@ -109,6 +109,21 @@ export function LoginPage() {
             {mode === 'login' ? 'Create one' : 'Sign in'}
           </button>
         </p>
+
+        {/* Without this the sign-in wall is a dead end for anyone arriving from a
+            shared link: they cannot see the app work without creating an account
+            and confirming an email first. */}
+        <div className="mt-8 border-t border-console-800 pt-6 text-center">
+          <a
+            href="/demo"
+            className="inline-block rounded border border-console-600 bg-console-800 px-4 py-2.5 text-sm text-console-200 transition-colors hover:border-transport hover:text-console-100"
+          >
+            Try it without an account →
+          </a>
+          <p className="legend mt-2.5 text-console-600">
+            a real separation you can mix
+          </p>
+        </div>
       </div>
     </div>
   )
