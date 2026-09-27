@@ -1,4 +1,4 @@
-# Music Tool
+# TrackSplit
 
 AI-powered music backing track generator. Upload a song, separate it into stems (vocals, drums, bass, other), and create custom mixes for practice.
 
@@ -103,7 +103,7 @@ Two details that shape the design. Separation is dispatched rather than awaited,
 
 ```bash
 git clone <repo-url>
-cd music-tool
+cd tracksplit
 npm install
 ```
 
@@ -204,7 +204,7 @@ Then restart uvicorn. Confirm it's receiving requests by checking that `POST /up
 
 ### Jobs stuck in "processing" / stems never appear
 
-Check the `music-tool-separation` logs at [modal.com/apps](https://modal.com/apps).
+Check the `tracksplit-separation` logs at [modal.com/apps](https://modal.com/apps).
 A common cause is that the separation app was never deployed — `workers/dispatch.py`
 resolves the function by name at runtime, so a missing deploy fails only once a
 job actually runs, not at API startup.
@@ -216,7 +216,7 @@ Jobs created before the cloud-storage change store local file paths in the datab
 ## Project Structure
 
 ```
-music-tool/
+tracksplit/
 ├── apps/
 │   ├── web/               # React + TypeScript frontend (Vite)
 │   │   └── src/
@@ -224,7 +224,8 @@ music-tool/
 │   │       │   ├── upload/
 │   │       │   ├── mixer/
 │   │       │   ├── waveform/
-│   │       │   └── export/
+│   │       │   ├── export/
+│   │       │   └── demo/     # public, no sign-in
 │   │       └── lib/       # Shared utilities (api.ts, etc.)
 │   └── api/               # Python FastAPI backend
 │       ├── main.py
@@ -235,7 +236,7 @@ music-tool/
 │       ├── storage/       # Supabase storage client
 │       ├── models/
 │       └── alembic/       # Database migrations
-├── docker-compose.yml     # PostgreSQL + Redis for local dev
+├── docker-compose.yml     # Optional local PostgreSQL (no Redis — the queue is Modal)
 ├── .env.example
 └── README.md
 ```
@@ -255,13 +256,13 @@ cd apps/api
 
 ### 2. Create the secret
 
-Production config comes from a Modal secret named `music-tool`, not from a
+Production config comes from a Modal secret named `tracksplit`, not from a
 `.env` file. It must contain `DATABASE_URL`, `SUPABASE_URL`,
 `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`, `SECRET_KEY` and
 `CORS_ORIGINS` — the app refuses to deploy if any are missing.
 
 ```bash
-modal secret create music-tool --from-dotenv <a file holding only those six keys>
+modal secret create tracksplit --from-dotenv <a file holding only those six keys>
 ```
 
 Don't feed it `apps/api/.env` wholesale: that would hand Modal its own
@@ -286,7 +287,7 @@ modal run modal_app.py::migrate
 
 ### 5. Smoke test
 
-`GET https://<your-workspace>--music-tool-api-fastapi-app.modal.run/health` → `{"status":"ok"}`
+`GET https://<your-workspace>--tracksplit-api-fastapi-app.modal.run/health` → `{"status":"ok"}`
 
 Expect ~6s on a cold start and well under a second warm.
 

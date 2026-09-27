@@ -13,16 +13,16 @@ Last verified: **2026-09-26** (repo had been dormant since 2026-05-26).
 | Thing | State |
 |---|---|
 | Local dev environment | Working. `apps/api/.venv` and `node_modules` installed, `.env` files populated. **ffmpeg is still missing** — see [Cold start](#cold-start-local). |
-| API | **Live on Modal**: `https://jovan253--music-tool-api-fastapi-app.modal.run`. `/health` 200 in 6.5s cold, 0.18s warm. |
-| GPU separation | **Live on Modal** as `music-tool-separation` / `separate_job`. |
+| API | **Live on Modal**: `https://jovan253--tracksplit-api-fastapi-app.modal.run`. `/health` 200 in 6.5s cold, 0.18s warm. |
+| GPU separation | **Live on Modal** as `tracksplit-separation` / `separate_job`. |
 | Postgres | **Live on Neon**, migrated to head (`7bc48242348d`). |
 | Supabase | **A fresh project** (`iinvqdjyfmjwfnggdkhi`) — the May one is gone, so there are no users and no history. `uploads` and `stems` buckets created 2026-09-26, both private. Email confirmation is on. |
-| Modal secret | `music-tool` exists with all six required keys. |
+| Modal secret | `tracksplit` exists with eight keys: six required plus the two demo settings. |
 | Railway | **Retired.** Config files deleted from the repo. The project itself must still be deleted in the Railway dashboard to stop any accrual. |
 | Cloudflare R2 | Credentials in `.env`, but **no code reads them yet** — the storage migration is a later change. |
 | Vercel | **Live** at https://music-tool-web.vercel.app — its origin is in `CORS_ORIGINS`, preflight verified. |
 | Retention | **Live.** Daily Modal cron expires jobs older than `STEM_RETENTION_DAYS` (default 14). Dry-run verified against real data before enabling. |
-| Tests / CI | 18 API tests; GitHub Actions runs them plus web lint and build. Green. |
+| Tests / CI | 48 API tests; GitHub Actions runs them plus web lint and build. Green. |
 
 **Verified end-to-end on 2026-09-26:** an authenticated upload through the deployed API dispatched to Modal via `.spawn()`, separated a track on the T4 in ~7s, and returned four distinct playable stems through signed URLs.
 
@@ -42,10 +42,10 @@ Fill this in the first time you check each dashboard, so you never have to hunt 
 | R2 account ID | `<fill in>` | Cloudflare dashboard → R2 → Overview |
 | R2 bucket names | `uploads`, `stems` | Chosen to match the current Supabase bucket names |
 | Modal workspace | `jovan253` | `modal profile current` |
-| Modal apps | `music-tool-api`, `music-tool-separation` | `apps/api/modal_app.py`, `apps/api/modal_separation.py` |
-| Modal secret name | `music-tool` | `modal secret list` |
-| Deployed API URL | https://jovan253--music-tool-api-fastapi-app.modal.run | `modal app list`, or the deploy output |
-| Vercel frontend URL | `<fill in>` | Vercel project → Domains |
+| Modal apps | `tracksplit-api`, `tracksplit-separation` | `apps/api/modal_app.py`, `apps/api/modal_separation.py` |
+| Modal secret name | `tracksplit` | `modal secret list` |
+| Deployed API URL | https://jovan253--tracksplit-api-fastapi-app.modal.run | `modal app list`, or the deploy output |
+| Vercel frontend URL | https://music-tool-web.vercel.app | Vercel project → Domains. Still carries the old name; renaming changes the origin, which must then be added to `CORS_ORIGINS`. |
 | GitHub repo | https://github.com/Jovan253/Music-Tool | — |
 
 ---
@@ -64,18 +64,26 @@ What each service does, where to go, and what to check when something is broken.
   - Storage → confirm `uploads` and `stems` buckets still exist.
   - Settings → API → confirm the service-role key hasn't been rotated out from under your `.env`.
   - Auth → Users → confirm your login account still exists.
-- **Keeping it alive:** the daily `retention_sweep()` Modal cron queries the database and touches storage on every run, which keeps the project active. **If that sweep breaks, the pause becomes a second, quieter failure** — storage also stops being reclaimed. Check its runs in the `music-tool-api` logs.
+- **Keeping it alive:** the daily `retention_sweep()` Modal cron queries the database and touches storage on every run, which keeps the project active. **If that sweep breaks, the pause becomes a second, quieter failure** — storage also stops being reclaimed. Check its runs in the `tracksplit-api` logs.
 
 ### Retention
 - **What it does:** once a job is older than `STEM_RETENTION_DAYS` (default 14), a daily Modal cron deletes its original upload and its four stems, then marks the job `expired` with `stems` cleared. The record survives; the audio does not.
 - **Why it exists:** each job is ~20–60 MB against a 1 GB free tier, so storage fills at roughly 20–50 tracks. Nothing else ever deleted a file.
-- **Exempting a job:** add its id to `RETENTION_EXEMPT_JOB_IDS` (comma-separated). The public demo job must go here or the demo loses its audio after the window and the portfolio link breaks silently.
+- **Exempting a job:** add its id to `RETENTION_EXEMPT_JOB_IDS` (comma-separated). `DEMO_JOB_ID` is exempted automatically, so the public demo cannot lose its audio by someone forgetting to list it twice.
 - **Before changing the window or trusting a sweep, dry-run it.** There are no storage backups on the free plan:
   ```python
   from workers.retention import expire_old_jobs
   expire_old_jobs(days=14, exempt=set(), dry_run=True)   # reports, deletes nothing
   ```
 - **Recovery:** there is none. An expired job cannot be re-separated — the original upload is deleted too, deliberately, since it is the larger artefact. Re-upload the track.
+
+### Public demo
+- **Live at** https://music-tool-web.vercel.app/demo — no sign-in, and the point of it is that a visitor can actually mix a real separation rather than read about one.
+- **Configured by two secret values:** `DEMO_JOB_ID` (currently `adaf2f22-9136-47ba-bca6-6f4a495d2bb7`) and `DEMO_TRACK_TITLE`, a free-text display label that falls back to the stored upload filename.
+- **Safety property:** `/demo/job` and `/demo/stems/{name}` are unauthenticated, so the job id comes from configuration and **never from the request**. There is no parameter a visitor can supply to reach another user's stems. Do not "helpfully" add one.
+- **Changing the demo track:** separate it in the app, get its id, then recreate the secret with the new `DEMO_JOB_ID` and redeploy `tracksplit-api`. The old demo track stops being exempt from retention at that moment and will eventually be swept.
+- **Use audio you own or that is openly licensed.** This page is public, so a commercial release here is a copyright exposure attached to your name.
+- **Export is deliberately hidden** in the demo: it posts to an authenticated route and would 401.
 
 ### Modal — hosts both the API and GPU separation
 - **Dashboard:** https://modal.com/apps
@@ -84,8 +92,8 @@ What each service does, where to go, and what to check when something is broken.
 
   | App | Entrypoint | What it is |
   |---|---|---|
-  | `music-tool-api` | `apps/api/modal_app.py` | The FastAPI app as an ASGI function, plus `migrate()` and the daily `retention_sweep()` |
-  | `music-tool-separation` | `apps/api/modal_separation.py` | `separate_job(job_id)` on a T4, owns the whole job |
+  | `tracksplit-api` | `apps/api/modal_app.py` | The FastAPI app as an ASGI function, plus `migrate()` and the daily `retention_sweep()` |
+  | `tracksplit-separation` | `apps/api/modal_separation.py` | `separate_job(job_id)` on a T4, owns the whole job |
 
 - **Free plan:** Starter is $0 with **$30/month of compute credits** (~50 T4-hours), 10 concurrent GPUs. At ~25s/song that is thousands of songs a month.
 - **Deploy:**
@@ -103,7 +111,7 @@ What each service does, where to go, and what to check when something is broken.
   - `workers/dispatch.py` resolves `separate_job` **by name at runtime**, so a rename or a missing separation deploy fails only once a job actually runs, not at API boot.
   - The app's logs tab shows per-invocation errors and GPU cold-start time.
   - Credit balance on the billing page — jobs fail once credits run out.
-- **Secrets:** the `music-tool` secret supplies all six config vars. Changing a value means `modal secret create music-tool --from-dotenv <file> --force`, then redeploying both apps.
+- **Secrets:** the `tracksplit` secret supplies all six config vars. Changing a value means `modal secret create tracksplit --from-dotenv <file> --force`, then redeploying both apps.
 
 ### Neon — Postgres
 - **Dashboard:** https://console.neon.tech
@@ -130,7 +138,7 @@ What each service does, where to go, and what to check when something is broken.
 
    | Variable | Value |
    |---|---|
-   | `VITE_API_BASE_URL` | `https://jovan253--music-tool-api-fastapi-app.modal.run` |
+   | `VITE_API_BASE_URL` | `https://jovan253--tracksplit-api-fastapi-app.modal.run` |
    | `VITE_SUPABASE_URL` | `https://iinvqdjyfmjwfnggdkhi.supabase.co` — the project URL, **not** the REST URL |
    | `VITE_SUPABASE_ANON_KEY` | the anon key from Supabase → Settings → API |
 
@@ -174,7 +182,7 @@ Backend (`apps/api/.env`, copied from `apps/api/.env.example`):
 | `R2_*` | Cloudflare → R2 | **No code reads these yet.** Present ahead of the storage migration. |
 
 Production values do **not** come from this file — they come from the Modal
-secret `music-tool`, which holds the first six rows. Note that `MODAL_TOKEN_*`
+secret `tracksplit`, which holds the first six rows. Note that `MODAL_TOKEN_*`
 and the R2 keys are deliberately *excluded* from that secret: the API has no
 need for Modal's own credentials, and nothing reads R2 yet.
 
@@ -250,7 +258,7 @@ With `MODAL_TOKEN_ID` set, uploads dispatch to Modal's GPU and come back in ~25s
 
 Point the frontend at Modal instead of localhost by setting `VITE_API_BASE_URL` in `apps/web/.env`:
 ```
-VITE_API_BASE_URL=https://jovan253--music-tool-api-fastapi-app.modal.run
+VITE_API_BASE_URL=https://jovan253--tracksplit-api-fastapi-app.modal.run
 ```
 This works because the Modal secret's `CORS_ORIGINS` still allows `http://localhost:5173`. Restart the Vite dev server after changing it — Vite reads env at startup.
 
@@ -264,7 +272,7 @@ Get-NetTCPConnection -LocalPort 8000 -State Listen | ForEach-Object { Stop-Proce
 ```
 If it respawns or the PID won't resolve: `Get-Process python | Stop-Process -Force`.
 
-**Jobs stuck in `processing`.** Check the `music-tool-separation` logs on modal.com. A job that dies without writing a terminal status means the container was killed rather than raising — `run_separation` records `failed` on any exception it sees. There is no longer a startup sweep to rescue these; Modal's `retries=2` is the recovery mechanism.
+**Jobs stuck in `processing`.** Check the `tracksplit-separation` logs on modal.com. A job that dies without writing a terminal status means the container was killed rather than raising — `run_separation` records `failed` on any exception it sees. There is no longer a startup sweep to rescue these; Modal's `retries=2` is the recovery mechanism.
 
 **Jobs fail on a timeout.** `SEPARATION_TIMEOUT_S` in `apps/api/modal_separation.py` is 900s, which is generous because a cold container pulls Demucs weights before starting work. Actual separation on a T4 is ~25s.
 
@@ -276,7 +284,7 @@ If it respawns or the PID won't resolve: `Get-Process python | Stop-Process -For
 
 **CORS errors in the browser.** `CORS_ORIGINS` doesn't include the origin you're calling from. In production it comes from the Modal secret, not `.env` — updating it means recreating the secret and redeploying.
 
-**Modal call fails with "function not found".** `workers/dispatch.py` resolves the function by name at runtime. Either `music-tool-separation` was never deployed, it went to a different workspace, or `separate_job` was renamed without updating `MODAL_FUNCTION_NAME`. Re-run `modal deploy modal_separation.py`.
+**Modal call fails with "function not found".** `workers/dispatch.py` resolves the function by name at runtime. Either `tracksplit-separation` was never deployed, it went to a different workspace, or `separate_job` was renamed without updating `MODAL_FUNCTION_NAME`. Re-run `modal deploy modal_separation.py`.
 
 **Config change didn't take effect in production.** The Modal secret is read at container start, so recreate the secret *and* redeploy both apps.
 
@@ -318,7 +326,7 @@ Deliberately deferred:
 
 1. ~~**Architecture and sequence diagrams, plus a plain-language explanation.**~~ **Done** — the README now opens with a "How it works" section, a Mermaid architecture diagram and a Mermaid sequence diagram for the upload → separate → poll → play flow. Mermaid rather than images so GitHub renders them inline and they stay diffable. Redraw them if the R2 migration lands, since storage appears in both.
 
-2. **Settle the app's name.** Currently "Music Tool" in the repo, provisionally "MusicSeparator" elsewhere. Worth deciding before creating more accounts, since the name ends up baked into project slugs, bucket names, and deploy URLs that are annoying to change later.
+2. **Settle the app's name.** Currently "TrackSplit" in the repo, provisionally "MusicSeparator" elsewhere. Worth deciding before creating more accounts, since the name ends up baked into project slugs, bucket names, and deploy URLs that are annoying to change later.
 3. **A public example page — the highest-leverage portfolio item here.** Nobody evaluating this will sign up: the sign-in wall, the email confirmation step and the free-tier limits all stand between a visitor and seeing anything work. A public page carrying a short screen recording of the real flow, plus one pre-separated track whose stems can be played and mixed without logging in, is what makes the link worth sending.
 
    Design note for when this happens: **every route is currently auth-gated**, so this needs a deliberate unauthenticated read path — most likely one whitelisted demo job id served without a token, rather than loosening `get_current_user`. Keep the demo job's stems in storage permanently and exclude them from whatever retention policy the R2 migration introduces, or the demo will quietly break.
