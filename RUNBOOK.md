@@ -286,7 +286,14 @@ If it respawns or the PID won't resolve: `Get-Process python | Stop-Process -For
 
 **Modal call fails with "function not found".** `workers/dispatch.py` resolves the function by name at runtime. Either `tracksplit-separation` was never deployed, it went to a different workspace, or `separate_job` was renamed without updating `MODAL_FUNCTION_NAME`. Re-run `modal deploy modal_separation.py`.
 
-**Config change didn't take effect in production.** The Modal secret is read at container start, so recreate the secret *and* redeploy both apps.
+**Config change didn't take effect in production.** Editing `apps/api/.env` changes nothing in production — production config lives in the Modal secret. Recreate the secret *and* redeploy, in that order.
+
+Even then a warm container can keep serving the old value for a short while, so a single check straight after deploying can read stale and look like the update failed. Poll for ~30s before concluding anything:
+```powershell
+.venv\Scripts\modal.exe secret create tracksplit --from-dotenv <file> --force
+.venv\Scripts\modal.exe deploy modal_app.py
+# then poll the endpoint that exposes the value
+```
 
 **Jobs created before May 2026 fail.** Pre-Supabase jobs store local filesystem paths that no longer resolve. Expected; ignore those rows.
 
