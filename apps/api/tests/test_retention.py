@@ -138,6 +138,10 @@ def test_retention_days_falls_back_on_a_bad_value(monkeypatch):
 
 
 def test_exempt_ids_parse_from_a_comma_list(monkeypatch):
+    # DEMO_JOB_ID is cleared explicitly: exempt_job_ids() folds it in, and a
+    # developer with a demo configured in .env would otherwise fail this test
+    # while CI, which has no .env, passed.
+    monkeypatch.delenv("DEMO_JOB_ID", raising=False)
     monkeypatch.setenv("RETENTION_EXEMPT_JOB_IDS", " a , b ,, c ")
     assert exempt_job_ids() == {"a", "b", "c"}
     monkeypatch.setenv("RETENTION_EXEMPT_JOB_IDS", "")
