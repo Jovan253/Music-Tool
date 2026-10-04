@@ -1,4 +1,5 @@
 import io
+from concurrent.futures import ThreadPoolExecutor
 from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -24,10 +25,12 @@ def export_mix(job_id: str, body: ExportRequest, user_id: str = Depends(get_curr
     if job is None or job.status != "done" or job.stems is None:
         raise HTTPException(status_code=404, detail="Job not found or not complete")
 
-    stem_bytes: dict[str, bytes] = {
-        name: download_file("stems", path)
-        for name, path in job.stems.items()
-    }
+    def _fetch(item: tuple[str, str]) -> tuple[str, bytes]:
+        name, path = item
+        return name, download_file("stems", path)
+
+    with ThreadPoolExecutor(max_workers=len(job.stems)) as pool:
+        stem_bytes: dict[str, bytes] = dict(pool.map(_fetch, job.stems.items()))
 
     audio_bytes = mix_stems(stem_bytes, body.stems, body.format)
 

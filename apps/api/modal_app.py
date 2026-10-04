@@ -54,7 +54,12 @@ def _add_api_to_path() -> None:
         sys.path.insert(0, REMOTE_DIR)
 
 
-@app.function(image=image, secrets=[secret], timeout=120)
+# Export is the only CPU-heavy thing the API does: it decodes four MP3 stems,
+# overlays them and re-encodes. On Modal's default fractional CPU a five-minute
+# track took longer than the old 120s timeout and the request was killed. These
+# containers only run while serving a request and scale to zero, so the larger
+# reservation costs nothing at idle.
+@app.function(image=image, secrets=[secret], cpu=2.0, memory=2048, timeout=600)
 @modal.asgi_app()
 def fastapi_app():
     _add_api_to_path()
